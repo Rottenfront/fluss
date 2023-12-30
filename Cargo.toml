@@ -1,0 +1,8 @@
+[package]
+name = "fluss"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+flo_draw = { path = "../flo_draw/draw", default-features = false, features = ["render-opengl"] }
+futures = "0.3"
