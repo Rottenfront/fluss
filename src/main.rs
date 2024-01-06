@@ -1,6 +1,9 @@
-use skia_safe::{scalar, Canvas, Color4f, ColorType, Paint, Point, Rect, Size, TextBlob, Font, Typeface, FontMgr, FontStyle};
 use skia_safe::font_style::{Slant, Weight, Width};
 use skia_safe::wrapper::{PointerWrapper, ValueWrapper};
+use skia_safe::{
+    scalar, Canvas, Color4f, ColorType, Font, FontMgr, FontStyle, Paint, Point, Rect, Size,
+    TextBlob, Typeface,
+};
 use winit::{
     dpi::LogicalSize,
     event::{Event, KeyEvent, Modifiers, WindowEvent},
@@ -10,21 +13,32 @@ use winit::{
 
 #[cfg(target_os = "macos")]
 fn main() {
-    use cocoa::{appkit::NSView, base::id as cocoa_id};
+    use cocoa::{
+        appkit::{NSView, NSWindow},
+        base::id as cocoa_id,
+    };
     use core_graphics_types::geometry::CGSize;
     use foreign_types_shared::{ForeignType, ForeignTypeRef};
     use metal::{Device, MTLPixelFormat, MetalLayer};
-    use objc::{rc::autoreleasepool, runtime::YES};
+    use objc::{
+        rc::autoreleasepool,
+        runtime::{NO, YES},
+    };
     use skia_safe::gpu::{self, mtl, BackendRenderTarget, DirectContext, SurfaceOrigin};
     use winit::{
-        dpi::LogicalSize,
-        event::{Event, WindowEvent},
-        event_loop::EventLoop,
+        platform::macos::{WindowBuilderExtMacOS, WindowExtMacOS},
         raw_window_handle::HasWindowHandle,
-        window::WindowBuilder,
     };
     let app = ApplicationState {
-        monospace_font: Font::new(FontMgr::new().match_family_style("Cascadia Code PL", FontStyle::new(Weight::NORMAL, Width::NORMAL, Slant::Upright)).unwrap(), 13.0),
+        monospace_font: Font::new(
+            FontMgr::new()
+                .match_family_style(
+                    "Cascadia Code PL",
+                    FontStyle::new(Weight::NORMAL, Width::NORMAL, Slant::Upright),
+                )
+                .unwrap(),
+            14.0,
+        ),
     };
 
     let size = LogicalSize::new(800, 600);
@@ -33,6 +47,8 @@ fn main() {
 
     let window = WindowBuilder::new()
         .with_inner_size(size)
+        .with_titlebar_transparent(true)
+        .with_fullsize_content_view(true)
         .with_title("Skia Metal Winit Example".to_string())
         .build(&events_loop)
         .unwrap();
@@ -60,6 +76,7 @@ fn main() {
                 raw_window_handle::RawWindowHandle::AppKit(appkit) => appkit.ns_view.as_ptr(),
                 _ => panic!("Wrong window handle type"),
             } as cocoa_id;
+            // view.setTitlebarAppearsTransparent_(NO);
             view.setWantsLayer(YES);
             view.setLayer(layer.as_ref() as *const _ as _);
         }
@@ -146,7 +163,11 @@ impl ApplicationState {
         let canvas_size = Size::from(canvas.base_layer_size());
 
         canvas.clear(Color4f::new(1.0, 1.0, 1.0, 1.0));
-        canvas.draw_text_blob(TextBlob::new("Text", &self.monospace_font).unwrap(), Point::new(100.0, 100.0), &Paint::new(Color4f::new(0.0, 0.0, 0.0, 1.0), None));
+        canvas.draw_text_blob(
+            TextBlob::new("Text", &self.monospace_font).unwrap(),
+            Point::new(100.0, 100.0),
+            &Paint::new(Color4f::new(0.0, 0.0, 0.0, 1.0), None),
+        );
 
         let rect_size = canvas_size / 2.0;
         let rect = Rect::from_point_and_size(
@@ -180,10 +201,19 @@ fn main() {
     use raw_window_handle::HasRawWindowHandle;
 
     use skia_safe::{
-        gpu::{self, backend_render_targets, gl::FramebufferInfo, SurfaceOrigin}, ColorType, Surface,
+        gpu::{self, backend_render_targets, gl::FramebufferInfo, SurfaceOrigin},
+        ColorType, Surface,
     };
     let app = ApplicationState {
-        monospace_font: Font::new(FontMgr::new().match_family_style("Cascadia Code", FontStyle::new(Weight::BOLD, Width::NORMAL, Slant::Upright)).unwrap(), 13.0),
+        monospace_font: Font::new(
+            FontMgr::new()
+                .match_family_style(
+                    "Cascadia Code",
+                    FontStyle::new(Weight::BOLD, Width::NORMAL, Slant::Upright),
+                )
+                .unwrap(),
+            13.0,
+        ),
     };
 
     let el = EventLoop::new().expect("Failed to create event loop");
