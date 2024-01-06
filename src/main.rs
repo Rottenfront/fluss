@@ -1,4 +1,12 @@
-use skia_safe::{scalar, Canvas, Color4f, ColorType, Paint, Point, Rect, Size};
+use skia_safe::{scalar, Canvas, Color4f, ColorType, Paint, Point, Rect, Size, TextBlob, Font, Typeface, FontMgr, FontStyle};
+use skia_safe::font_style::{Slant, Weight, Width};
+use skia_safe::wrapper::{PointerWrapper, ValueWrapper};
+use winit::{
+    dpi::LogicalSize,
+    event::{Event, KeyEvent, Modifiers, WindowEvent},
+    event_loop::{ControlFlow, EventLoop},
+    window::{Window, WindowBuilder},
+};
 
 #[cfg(target_os = "macos")]
 fn main() {
@@ -14,6 +22,9 @@ fn main() {
         event_loop::EventLoop,
         raw_window_handle::HasWindowHandle,
         window::WindowBuilder,
+    };
+    let app = ApplicationState {
+        monospace_font: Font::new(FontMgr::new().match_family_style("Cascadia Code PL", FontStyle::new(Weight::NORMAL, Width::NORMAL, Slant::Upright)).unwrap(), 13.0),
     };
 
     let size = LogicalSize::new(800, 600);
@@ -106,7 +117,7 @@ fn main() {
                                 .unwrap()
                             };
 
-                            draw(surface.canvas());
+                            app.draw(surface.canvas());
 
                             context.flush_and_submit();
                             drop(surface);
@@ -125,24 +136,31 @@ fn main() {
         .expect("run() failed");
 }
 
-/// Renders a rectangle that occupies exactly half of the canvas
-fn draw(canvas: &Canvas) {
-    let canvas_size = Size::from(canvas.base_layer_size());
-
-    canvas.clear(Color4f::new(1.0, 1.0, 1.0, 1.0));
-
-    let rect_size = canvas_size / 2.0;
-    let rect = Rect::from_point_and_size(
-        Point::new(
-            (canvas_size.width - rect_size.width) / 2.0,
-            (canvas_size.height - rect_size.height) / 2.0,
-        ),
-        rect_size,
-    );
-    canvas.draw_rect(rect, &Paint::new(Color4f::new(0.0, 0.0, 1.0, 1.0), None));
+struct ApplicationState {
+    monospace_font: Font,
 }
 
-#[cfg(feature = "gl")]
+impl ApplicationState {
+    /// Renders a rectangle that occupies exactly half of the canvas
+    fn draw(&self, canvas: &Canvas) {
+        let canvas_size = Size::from(canvas.base_layer_size());
+
+        canvas.clear(Color4f::new(1.0, 1.0, 1.0, 1.0));
+        canvas.draw_text_blob(TextBlob::new("Text", &self.monospace_font).unwrap(), Point::new(100.0, 100.0), &Paint::new(Color4f::new(0.0, 0.0, 0.0, 1.0), None));
+
+        let rect_size = canvas_size / 2.0;
+        let rect = Rect::from_point_and_size(
+            Point::new(
+                (canvas_size.width - rect_size.width) / 2.0,
+                (canvas_size.height - rect_size.height) / 2.0,
+            ),
+            rect_size,
+        );
+        canvas.draw_rect(rect, &Paint::new(Color4f::new(0.0, 0.0, 1.0, 1.0), None));
+    }
+}
+
+#[cfg(all(feature = "gl-render", not(target_os = "macos")))]
 fn main() {
     use std::{
         ffi::CString,
@@ -151,7 +169,6 @@ fn main() {
     };
 
     use gl::types::*;
-    use gl_rs as gl;
     use glutin::{
         config::{ConfigTemplateBuilder, GlConfig},
         context::{ContextApi, ContextAttributesBuilder, PossiblyCurrentContext},
@@ -161,16 +178,12 @@ fn main() {
     };
     use glutin_winit::DisplayBuilder;
     use raw_window_handle::HasRawWindowHandle;
-    use winit::{
-        dpi::LogicalSize,
-        event::{Event, KeyEvent, Modifiers, WindowEvent},
-        event_loop::{ControlFlow, EventLoop},
-        window::{Window, WindowBuilder},
-    };
 
     use skia_safe::{
-        gpu::{self, backend_render_targets, gl::FramebufferInfo, SurfaceOrigin},
-        Color, ColorType, Surface,
+        gpu::{self, backend_render_targets, gl::FramebufferInfo, SurfaceOrigin}, ColorType, Surface,
+    };
+    let app = ApplicationState {
+        monospace_font: Font::new(FontMgr::new().match_family_style("Cascadia Code", FontStyle::new(Weight::BOLD, Width::NORMAL, Slant::Upright)).unwrap(), 13.0),
     };
 
     let el = EventLoop::new().expect("Failed to create event loop");
@@ -253,7 +266,7 @@ fn main() {
             .display()
             .get_proc_address(CString::new(s).unwrap().as_c_str())
     });
-    let interface = skia_safe::gpu::gl::Interface::new_load_with(|name| {
+    let interface = gpu::gl::Interface::new_load_with(|name| {
         if name == "eglGetCurrentDisplay" {
             return std::ptr::null();
         }
@@ -280,7 +293,7 @@ fn main() {
     fn create_surface(
         window: &Window,
         fb_info: FramebufferInfo,
-        gr_context: &mut skia_safe::gpu::DirectContext,
+        gr_context: &mut gpu::DirectContext,
         num_samples: usize,
         stencil_size: usize,
     ) -> Surface {
@@ -384,8 +397,8 @@ fn main() {
         if draw_frame {
             frame += 1;
             let canvas = env.surface.canvas();
-            draw(&canvas);
-            renderer::render_frame(frame % 360, 12, 60, canvas);
+            app.draw(&canvas);
+            // renderer::render_frame(frame % 360, 12, 60, canvas);
             env.gr_context.flush_and_submit();
             env.gl_surface.swap_buffers(&env.gl_context).unwrap();
         }
@@ -397,13 +410,7 @@ fn main() {
     .expect("run() failed");
 }
 
-#[cfg(not(all(target_os = "windows", feature = "d3d")))]
-fn main() {
-    println!("This example requires the `d3d` feature to be enabled on Windows.");
-    println!("Run it with `cargo run --example d3d-window --features d3d`");
-}
-
-#[cfg(all(target_os = "windows", feature = "d3d"))]
+#[cfg(all(feature = "d3d-render", not(feature = "gl-render")))]
 fn main() -> anyhow::Result<()> {
     // NOTE: Most of code is from https://github.com/microsoft/windows-rs/blob/02db74cf5c4796d970e6d972cdc7bc3967380079/crates/samples/windows/direct3d12/src/main.rs
 
