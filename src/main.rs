@@ -1,17 +1,21 @@
+use std::cmp::min;
+use std::path::PathBuf;
+
 use skia_safe::font_style::{Slant, Weight, Width};
-use skia_safe::wrapper::{PointerWrapper, ValueWrapper};
+use skia_safe::gradient_shader::GradientShaderColors;
 use skia_safe::{
-    scalar, Canvas, Color4f, ColorType, Font, FontMgr, FontStyle, Paint, Point, Rect, Size,
-    TextBlob, Typeface,
+    Canvas, ClipOp, Color, Color4f, EncodedImageFormat, Font, FontMgr, FontStyle, IRect, Image,
+    ImageInfo, Paint, Point, Rect, Scalar, Shader, Size, TextBlob, TileMode,
 };
 use winit::{
     dpi::LogicalSize,
     event::{Event, KeyEvent, Modifiers, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
+    keyboard::KeyCode,
     window::{Window, WindowBuilder},
 };
 
-#[cfg(target_os = "macos")]
+#[cfg(feature = "metal-render")]
 fn main() {
     use cocoa::{
         appkit::{NSView, NSWindow},
@@ -47,7 +51,9 @@ fn main() {
 
     let window = WindowBuilder::new()
         .with_inner_size(size)
+        .with_transparent(true)
         .with_titlebar_transparent(true)
+        .with_title_hidden(true)
         .with_fullsize_content_view(true)
         .with_title("Skia Metal Winit Example".to_string())
         .build(&events_loop)
@@ -153,8 +159,328 @@ fn main() {
         .expect("run() failed");
 }
 
+mod public_api {
+    use std::path::PathBuf;
+
+    pub use kurbo::*;
+    use winit::event::{KeyEvent, MouseButton};
+
+    pub enum WidgetEvent {
+        CursorMove((f32, f32)),
+        CursorLeft,
+        ButtonPress(MouseButton),
+        ButtonRelease(MouseButton),
+        Scroll {
+            delta: (f32, f32),
+        },
+        KeyboardInput(KeyEvent),
+        Resized((f32, f32)),
+        Disabled,
+        Enabled,
+
+        /// A file has been dropped into the widget.
+        ///
+        /// When the user drops multiple files at once, this event will be emitted for each file
+        /// separately.
+        DroppedFile(PathBuf),
+
+        /// A file is being hovered over the widget.
+        ///
+        /// When the user hovers multiple files at once, this event will be emitted for each file
+        /// separately.
+        HoveredFile(PathBuf),
+
+        /// A file was hovered, but has exited the widget.
+        ///
+        /// There will be a single `HoveredFileCancelled` event triggered even if multiple files were
+        /// hovered.
+        HoveredFileCancelled,
+    }
+
+    pub type FontId = usize;
+    pub const MONOSPACE_FONT: FontId = 0;
+    pub const SERIF_FONT: FontId = 1;
+
+    pub enum ImageFormat {
+        Rgba,
+    }
+    pub struct Image {
+        data: Vec<u8>,
+        format: ImageFormat,
+    }
+    pub type ImageId = usize;
+
+    pub enum BezierCurve {
+        Linear(Point),
+        Quad(Point, Point),
+        Cubic(Point, Point, Point),
+    }
+
+    pub trait BezierPathTrait {
+        fn line_to(&mut self, point: Point);
+        fn quad_to(&mut self, point1: Point, point2: Point);
+        fn cubic_to(&mut self, point1: Point, point2: Point, point3: Point);
+    }
+
+    impl BezierPathTrait for Vec<BezierCurve> {
+        fn line_to(&mut self, point: Point) {
+            self.push(BezierCurve::Linear(point));
+        }
+        fn quad_to(&mut self, point1: Point, point2: Point) {
+            self.push(BezierCurve::Quad(point1, point2));
+        }
+        fn cubic_to(&mut self, point1: Point, point2: Point, point3: Point) {
+            self.push(BezierCurve::Cubic(point1, point2, point3));
+        }
+    }
+
+    // pub enum Primitive {
+    //     Rect {
+    //         top_left: Point,
+    //         bottom_right: Point,
+    //     },
+    //     RoundedRect {
+    //         top_left: Point,
+    //         bottom_right: Point,
+    //         radius: f32,
+    //     },
+    //     Text {
+    //         text: String,
+    //         top_left: Point,
+    //         font: FontId,
+    //     },
+    //     Path {
+    //         start: Point,
+    //         path: Vec<BezierCurve>,
+    //     },
+    // }
+
+    pub struct Color {
+        r: f32,
+        g: f32,
+        b: f32,
+        a: f32,
+    }
+
+    pub enum Filler {
+        Image(ImageId),
+        Color(Color),
+        LinearGradient((Point, Color), (Point, Color)),
+    }
+
+    pub trait Context {
+        fn create_image(&mut self, img: Image) -> ImageId;
+        fn release_image(&mut self, id: ImageId) -> Result<(), String>;
+    }
+
+    pub trait Element {
+        /// `self` field is not mutable 'cause it's better to use bindings for drawing context
+        ///
+        /// Binding doesn't require mutability to modify content
+        fn draw(&self, max_bound: Point) -> Vec<(Box<impl Shape>, Filler)>;
+        /// Returns true if event is handled, false if event is passed
+        fn handle_event<Ctx: Context>(&mut self, event: WidgetEvent, ctx: &mut Ctx) -> bool;
+        /// Must be called by context on widget creation
+        fn prepare<Ctx: Context>(&mut self, ctx: &mut Ctx);
+        /// Must be called by context on widget deletion, can be used for releasing used data
+        fn delete<Ctx: Context>(&mut self, ctx: &mut Ctx);
+    }
+}
+
+pub enum AppFocus {
+    LeftDock,
+    RightDock,
+    BottomDock,
+    /// Splitted editor part number
+    /// Iif there are no splits - can be any number
+    Split(usize),
+}
+
 struct ApplicationState {
     monospace_font: Font,
+    test_editor: EditorState,
+}
+
+struct Bar {
+    hovered_button: isize,
+    enabled_button: isize,
+}
+
+#[derive(Debug, Clone)]
+pub enum SpanType {
+    Text,
+    Comment,
+    Keyword,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct Cursor {
+    selection_pos: (usize, usize),
+    position: (usize, usize),
+    /// Needed to represent normal position on line when cursor switches to the line with length
+    /// less than cursor's position on line
+    normal_x: usize,
+}
+
+pub struct EditorState {
+    file: Vec<String>,
+    name: String,
+    path: Option<PathBuf>,
+    scroll: (f32, f32),
+    // spans: Binding<Vec<(usize, usize, usize, usize, SpanType)>>,
+    cursors: Vec<Cursor>,
+}
+#[derive(PartialEq, Eq)]
+pub enum Arrow {
+    Left,
+    Up,
+    Right,
+    Down,
+}
+
+const DISTANCE_BETWEEN_NUMBER_AND_LINE: f32 = 20.0;
+pub const UPPER_BAR_HEIGHT: f32 = 40.0;
+pub const LEFT_BAR_WIDTH: f32 = 40.0;
+pub const RIGHT_BAR_WIDTH: f32 = 40.0;
+pub const BOTTOM_BAR_HEIGHT: f32 = 30.0;
+
+impl EditorState {
+    fn draw(&self, canvas: &Canvas, rect: Rect, monospace_font: &Font) {
+        let (font_height, metrics) = monospace_font.metrics();
+        let x1 = rect.left;
+        let x2 = rect.right;
+        let y1 = rect.top;
+        let y2 = rect.bottom;
+        let clip = canvas.save();
+        // canvas.draw_text_blob(
+        //     TextBlob::new("Text", monospace_font).unwrap(),
+        //     Point::new(100.0, 100.0),
+        //     &Paint::new(Color4f::new(0.0, 0.0, 0.0, 1.0), None),
+        // );
+        canvas.clip_rect(&rect, Some(ClipOp::Intersect), Some(true));
+        let first_line = (self.scroll.1 / font_height) as usize;
+        let last_line = ((self.scroll.1 + (y2 - y1)) / font_height) as usize + 1;
+
+        let number = format!("{}", self.file.len());
+        let mut font_width = [0.0];
+        monospace_font.get_widths(&[25], &mut font_width);
+        let font_width = font_width[0];
+        let number_len = number.len() as f32 * font_width;
+        let x1 = DISTANCE_BETWEEN_NUMBER_AND_LINE + x1 + number_len;
+
+        // Lines render
+        // delta is distance between left-top corner of first displayed line and left-top corner of editor
+        let delta_y = self.scroll.1 - font_height * (first_line as f32);
+        let y1 = y1 - delta_y + (1 - first_line) as f32 * font_height;
+        for i in first_line..min(last_line, self.file.len()) {
+            // Render line
+            canvas.draw_text_blob(
+                TextBlob::new(&self.file[i], monospace_font).unwrap(),
+                Point::new(
+                    x1 + DISTANCE_BETWEEN_NUMBER_AND_LINE,
+                    y1 + i as f32 * font_height,
+                ),
+                &Paint::new(Color4f::new(0.0, 0.0, 0.0, 1.0), None),
+            );
+            // Render number
+            let linenum = format!("{i}");
+            canvas.draw_text_blob(
+                TextBlob::new(&linenum, monospace_font).unwrap(),
+                Point::new(
+                    x1 - linenum.len() as f32 * font_width,
+                    y1 + i as f32 * font_height,
+                ),
+                &Paint::new(Color4f::new(0.0, 0.0, 0.0, 1.0), None),
+            );
+            // gc.begin_line_layout(
+            //     x1 - DISTANCE_BETWEEN_NUMBER_AND_LINE,
+            //     y1 + i as f32 * metrics.height,
+            //     TextAlignment::Right,
+            // );
+            // gc.layout_text(MONOSPACE_FONT, format!("{}", i + 1));
+            // gc.draw_text_layout();
+        }
+        for cursor in &self.cursors {
+            let mut selection_line = cursor.selection_pos.0;
+            let mut selection_char = cursor.selection_pos.1;
+            let mut line = cursor.position.0;
+            let mut ch = cursor.position.1;
+            let x = x1 + ch as f32 * font_width + DISTANCE_BETWEEN_NUMBER_AND_LINE;
+            let y = y1 + line as f32 * font_height + (font_height - metrics.cap_height) / 2.0;
+            canvas.draw_rect(
+                &Rect::from_ltrb(x - 1.0, y - font_height, x + 1.0, y),
+                &Paint::new(Color4f::new(0.0, 0.0, 1.0, 1.0), None),
+            );
+        }
+        canvas.restore();
+    }
+
+    pub fn handle_cursor_moved(&mut self, cursor_id: usize, arrow: Arrow) {
+        let cursor = &mut self.cursors[cursor_id];
+        match arrow {
+            Arrow::Up => {
+                if cursor.position.0 != 0 {
+                    cursor.position.0 -= 1;
+                    cursor.position.1 = min(self.file[cursor.position.0].len(), cursor.normal_x);
+                }
+            }
+            Arrow::Down => {
+                if cursor.position.0 < self.file.len() - 1 {
+                    cursor.position.0 += 1;
+                    cursor.position.1 = min(self.file[cursor.position.0].len(), cursor.normal_x);
+                }
+            }
+            Arrow::Left | Arrow::Right => {
+                if cursor.selection_pos != cursor.position {
+                    // adjust selection to one of the sides
+                    if arrow == Arrow::Left {
+                        if cursor.selection_pos.0 < cursor.position.0
+                            || (cursor.selection_pos.0 == cursor.position.0
+                                && cursor.selection_pos.1 < cursor.position.1)
+                        {
+                            cursor.position = cursor.selection_pos;
+                        } else {
+                            cursor.selection_pos = cursor.position;
+                        }
+                    } else {
+                        if cursor.selection_pos.0 < cursor.position.0
+                            || (cursor.selection_pos.0 == cursor.position.0
+                                && cursor.selection_pos.1 < cursor.position.1)
+                        {
+                            cursor.selection_pos = cursor.position;
+                        } else {
+                            cursor.position = cursor.selection_pos;
+                        }
+                    }
+                } else {
+                    // increase/decrease cursor index
+                    if arrow == Arrow::Left {
+                        if cursor.position.1 == 0 {
+                            if cursor.position.0 != 0 {
+                                cursor.position.0 -= 1;
+                                cursor.position.1 = self.file[cursor.position.0].len();
+                            }
+                        } else {
+                            cursor.position.1 -= 1;
+                        }
+                    } else {
+                        if cursor.position.0 < self.file.len() {
+                            if cursor.position.1 == self.file[cursor.position.0].len() {
+                                if cursor.position.0 < self.file.len() - 1 {
+                                    cursor.position.0 += 1;
+                                    cursor.position.1 = 0;
+                                }
+                            } else {
+                                cursor.position.1 += 1;
+                            }
+                        }
+                    }
+                }
+                cursor.normal_x = cursor.position.1;
+            }
+        }
+        cursor.selection_pos = cursor.position;
+    }
 }
 
 impl ApplicationState {
@@ -162,26 +488,60 @@ impl ApplicationState {
     fn draw(&self, canvas: &Canvas) {
         let canvas_size = Size::from(canvas.base_layer_size());
 
-        canvas.clear(Color4f::new(1.0, 1.0, 1.0, 1.0));
-        canvas.draw_text_blob(
-            TextBlob::new("Text", &self.monospace_font).unwrap(),
-            Point::new(100.0, 100.0),
-            &Paint::new(Color4f::new(0.0, 0.0, 0.0, 1.0), None),
+        canvas.clear(Color::WHITE);
+
+        canvas.draw_rect(
+            Rect::from_ltrb(0.0, 0.0, canvas_size.width, 40.0),
+            &Paint::new(Color4f::new(0.0, 0.0, 1.0, 1.0), None),
+        );
+        // canvas.draw_rect(
+        //     Rect::from_ltrb(0.0, 0.0, canvas_size.width, canvas_size.height),
+        //     &Paint::new(Color4f::new(1.0, 1.0, 1.0, 1.0), None),
+        // );
+        self.test_editor.draw(
+            canvas,
+            Rect::from_ltrb(
+                LEFT_BAR_WIDTH,
+                UPPER_BAR_HEIGHT,
+                canvas_size.width - RIGHT_BAR_WIDTH,
+                canvas_size.height - BOTTOM_BAR_HEIGHT,
+            ),
+            &self.monospace_font,
         );
 
-        let rect_size = canvas_size / 2.0;
-        let rect = Rect::from_point_and_size(
-            Point::new(
-                (canvas_size.width - rect_size.width) / 2.0,
-                (canvas_size.height - rect_size.height) / 2.0,
-            ),
-            rect_size,
-        );
-        canvas.draw_rect(rect, &Paint::new(Color4f::new(0.0, 0.0, 1.0, 1.0), None));
+        // canvas.draw_rect(
+        //     Rect::from_ltrb(0.0, 0.0, canvas_size.width, 30.0),
+        //     &Paint::new(Color4f::new(0.0, 1.0, 0.0, 1.0), None),
+        // );
+
+        // let rect_size = canvas_size / 2.0;
+        // let rect = Rect::from_point_and_size(
+        //     Point::new(
+        //         (canvas_size.width - rect_size.width) / 2.0,
+        //         (canvas_size.height - rect_size.height) / 2.0,
+        //     ),
+        //     rect_size,
+        // );
+        // let scalars = [0.0f32, 1.0f32];
+        // let mut paint = Paint::default();
+        // paint.set_shader(Shader::linear_gradient(
+        //     (
+        //         Point::new(rect.left, rect.top),
+        //         Point::new(rect.right, rect.bottom),
+        //     ),
+        //     GradientShaderColors::Colors(&[Color::RED, Color::BLUE]),
+        //     None,
+        //     TileMode::Repeat,
+        //     None,
+        //     None,
+        // ));
+        // canvas.draw_rect(rect, &paint);
     }
+
+    // fn draw_left_bar(&self, canvas: &Canvas) {}
 }
 
-#[cfg(all(feature = "gl-render", not(target_os = "macos")))]
+#[cfg(feature = "gl-render")]
 fn main() {
     use std::{
         ffi::CString,
@@ -204,22 +564,39 @@ fn main() {
         gpu::{self, backend_render_targets, gl::FramebufferInfo, SurfaceOrigin},
         ColorType, Surface,
     };
-    let app = ApplicationState {
+    let mut app = ApplicationState {
         monospace_font: Font::new(
             FontMgr::new()
                 .match_family_style(
-                    "Cascadia Code",
+                    "Cascadia Code PL",
                     FontStyle::new(Weight::BOLD, Width::NORMAL, Slant::Upright),
                 )
                 .unwrap(),
             13.0,
         ),
+        test_editor: EditorState {
+            file: vec![
+                "fn main() {".into(),
+                "    println!(\"Hello, World!\");".into(),
+                "}".into(),
+            ],
+            name: "name".to_string(),
+            path: None,
+            scroll: (0.0, 0.0),
+            cursors: vec![Cursor {
+                position: (0, 0),
+                selection_pos: (0, 0),
+                normal_x: 0,
+            }],
+        },
     };
 
     let el = EventLoop::new().expect("Failed to create event loop");
     let winit_window_builder = WindowBuilder::new()
         .with_title("rust-skia-gl-window")
-        .with_inner_size(LogicalSize::new(800, 800));
+        .with_inner_size(LogicalSize::new(800, 800))
+        .with_transparent(true)
+        .with_blur(true);
 
     let template = ConfigTemplateBuilder::new()
         .with_alpha_size(8)
@@ -375,6 +752,7 @@ fn main() {
     let mut modifiers = Modifiers::default();
     let expected_frame_length_seconds = 1.0 / 60.0;
     let frame_duration = Duration::from_secs_f32(expected_frame_length_seconds);
+    let mut key_pressed = false;
 
     el.run(move |event, window_target| {
         let frame_start = Instant::now();
@@ -405,11 +783,52 @@ fn main() {
                 }
                 WindowEvent::ModifiersChanged(new_modifiers) => modifiers = new_modifiers,
                 WindowEvent::KeyboardInput {
-                    event: KeyEvent { logical_key, .. },
+                    event:
+                        KeyEvent {
+                            logical_key,
+                            physical_key,
+                            repeat,
+                            ..
+                        },
                     ..
                 } => {
                     if modifiers.state().super_key() && logical_key == "q" {
                         window_target.exit();
+                    }
+                    if !key_pressed || repeat {
+                        if !modifiers.state().super_key() && !modifiers.state().control_key() {
+                            let cursors = app.test_editor.cursors.clone();
+                            for (id, cursor) in &mut cursors.iter().enumerate() {
+                                // let mut start_line = cursor.0;
+                                // let mut start_char = cursor.1;
+                                // let mut line = cursor.2;
+                                // let mut ch = cursor.3;
+                                match physical_key {
+                                    winit::keyboard::PhysicalKey::Code(code) => match code {
+                                        KeyCode::ArrowUp => {
+                                            app.test_editor.handle_cursor_moved(id, Arrow::Up);
+                                        }
+                                        KeyCode::ArrowDown => {
+                                            app.test_editor.handle_cursor_moved(id, Arrow::Down);
+                                        }
+                                        KeyCode::ArrowLeft => {
+                                            app.test_editor.handle_cursor_moved(id, Arrow::Left);
+                                        }
+                                        KeyCode::ArrowRight => {
+                                            app.test_editor.handle_cursor_moved(id, Arrow::Right);
+                                        }
+                                        _ => {
+                                            // Input character
+                                        }
+                                    },
+                                    // winit::keyboard::PhysicalKey::Unidentified()
+                                    _ => {}
+                                }
+                            }
+                        }
+                    }
+                    if !repeat {
+                        key_pressed = !key_pressed;
                     }
                     frame = frame.saturating_sub(10);
                     env.window.request_redraw();
