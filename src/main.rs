@@ -1,18 +1,25 @@
-use std::cmp::min;
-use std::path::PathBuf;
+mod backend;
 
-use skia_safe::font_style::{Slant, Weight, Width};
-use skia_safe::gradient_shader::GradientShaderColors;
+use backend::{SkiaBackend, SkiaEnv};
+
+use std::{
+    cmp::min,
+    collections::HashMap,
+    path::PathBuf,
+    time::{Duration, Instant},
+};
+
 use skia_safe::{
-    Canvas, ClipOp, Color, Color4f, EncodedImageFormat, Font, FontMgr, FontStyle, IRect, Image,
-    ImageInfo, Paint, Point, Rect, Scalar, Shader, Size, TextBlob, TileMode,
+    font_style::{Slant, Weight, Width},
+    svg::Dom as SvgDom,
+    Canvas, ClipOp, Color, Color4f, Font, FontMgr, FontStyle, Paint, Point, Rect, Size, TextBlob,
 };
 use winit::{
     dpi::LogicalSize,
     event::{Event, KeyEvent, Modifiers, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    keyboard::{Key, KeyCode, NamedKey, PhysicalKey},
-    window::{Window, WindowBuilder},
+    keyboard::{Key, NamedKey, PhysicalKey},
+    window::WindowBuilder,
 };
 
 #[cfg(feature = "metal-render")]
@@ -159,134 +166,6 @@ fn main() {
         .expect("run() failed");
 }
 
-mod public_api {
-    use std::path::PathBuf;
-
-    pub use kurbo::*;
-    use winit::event::{KeyEvent, MouseButton};
-
-    pub enum WidgetEvent {
-        CursorMove((f32, f32)),
-        CursorLeft,
-        ButtonPress(MouseButton),
-        ButtonRelease(MouseButton),
-        Scroll {
-            delta: (f32, f32),
-        },
-        KeyboardInput(KeyEvent),
-        Resized((f32, f32)),
-        Disabled,
-        Enabled,
-
-        /// A file has been dropped into the widget.
-        ///
-        /// When the user drops multiple files at once, this event will be emitted for each file
-        /// separately.
-        DroppedFile(PathBuf),
-
-        /// A file is being hovered over the widget.
-        ///
-        /// When the user hovers multiple files at once, this event will be emitted for each file
-        /// separately.
-        HoveredFile(PathBuf),
-
-        /// A file was hovered, but has exited the widget.
-        ///
-        /// There will be a single `HoveredFileCancelled` event triggered even if multiple files were
-        /// hovered.
-        HoveredFileCancelled,
-    }
-
-    pub type FontId = usize;
-    pub const MONOSPACE_FONT: FontId = 0;
-    pub const SERIF_FONT: FontId = 1;
-
-    pub enum ImageFormat {
-        Rgba,
-    }
-    pub struct Image {
-        data: Vec<u8>,
-        format: ImageFormat,
-    }
-    pub type ImageId = usize;
-
-    pub enum BezierCurve {
-        Linear(Point),
-        Quad(Point, Point),
-        Cubic(Point, Point, Point),
-    }
-
-    pub trait BezierPathTrait {
-        fn line_to(&mut self, point: Point);
-        fn quad_to(&mut self, point1: Point, point2: Point);
-        fn cubic_to(&mut self, point1: Point, point2: Point, point3: Point);
-    }
-
-    impl BezierPathTrait for Vec<BezierCurve> {
-        fn line_to(&mut self, point: Point) {
-            self.push(BezierCurve::Linear(point));
-        }
-        fn quad_to(&mut self, point1: Point, point2: Point) {
-            self.push(BezierCurve::Quad(point1, point2));
-        }
-        fn cubic_to(&mut self, point1: Point, point2: Point, point3: Point) {
-            self.push(BezierCurve::Cubic(point1, point2, point3));
-        }
-    }
-
-    // pub enum Primitive {
-    //     Rect {
-    //         top_left: Point,
-    //         bottom_right: Point,
-    //     },
-    //     RoundedRect {
-    //         top_left: Point,
-    //         bottom_right: Point,
-    //         radius: f32,
-    //     },
-    //     Text {
-    //         text: String,
-    //         top_left: Point,
-    //         font: FontId,
-    //     },
-    //     Path {
-    //         start: Point,
-    //         path: Vec<BezierCurve>,
-    //     },
-    // }
-
-    pub struct Color {
-        r: f32,
-        g: f32,
-        b: f32,
-        a: f32,
-    }
-
-    pub enum Filler {
-        Image(ImageId),
-        Color(Color),
-        LinearGradient((Point, Color), (Point, Color)),
-    }
-
-    pub trait Context {
-        fn create_image(&mut self, img: Image) -> ImageId;
-        fn release_image(&mut self, id: ImageId) -> Result<(), String>;
-    }
-
-    pub trait Element {
-        /// `self` field is not mutable 'cause it's better to use bindings for drawing context
-        ///
-        /// Binding doesn't require mutability to modify content
-        fn draw(&self, max_bound: Point) -> Vec<(Box<impl Shape>, Filler)>;
-        /// Returns true if event is handled, false if event is passed
-        fn handle_event<Ctx: Context>(&mut self, event: WidgetEvent, ctx: &mut Ctx) -> bool;
-        /// Must be called by context on widget creation
-        fn prepare<Ctx: Context>(&mut self, ctx: &mut Ctx);
-        /// Must be called by context on widget deletion, can be used for releasing used data
-        fn delete<Ctx: Context>(&mut self, ctx: &mut Ctx);
-    }
-}
-
 pub enum AppFocus {
     LeftDock,
     RightDock,
@@ -384,12 +263,7 @@ impl EditorState {
         let x2 = rect.right;
         let y1 = rect.top;
         let y2 = rect.bottom;
-        let clip = canvas.save();
-        // canvas.draw_text_blob(
-        //     TextBlob::new("Text", monospace_font).unwrap(),
-        //     Point::new(100.0, 100.0),
-        //     &Paint::new(Color4f::new(0.0, 0.0, 0.0, 1.0), None),
-        // );
+        canvas.save();
         canvas.clip_rect(&rect, Some(ClipOp::Intersect), Some(true));
         let first_line = (self.scroll.1 / font_height) as usize;
         let last_line = ((self.scroll.1 + (y2 - y1)) / font_height) as usize + 1;
@@ -399,8 +273,8 @@ impl EditorState {
         monospace_font.get_widths(&[25], &mut font_width);
         let font_width = font_width[0];
         let number_len = number.len() as f32 * font_width;
-        let x1 =
-            DISTANCE_BETWEEN_NUMBER_AND_LINE + x1 + number_len + DISTANCE_BETWEEN_NUMBER_AND_LINE;
+        // abscisse of the start of every line in the editor
+        let x1 = x1 + number_len + DISTANCE_BETWEEN_NUMBER_AND_LINE * 2.0;
 
         // Lines render
         // delta is distance between left-top corner of first displayed line and left-top corner of editor
@@ -475,7 +349,7 @@ impl EditorState {
                     );
                 }
                 // filled lines
-                if max_span.0 - min_span.1 > 1 {
+                if max_span.0 - min_span.0 > 1 {
                     let min_y = y1
                         + min_span.0 as f32 * font_height
                         + (font_height - metrics.cap_height) / 2.0;
@@ -492,276 +366,389 @@ impl EditorState {
         canvas.restore();
     }
 
-    pub fn handle_cursor_input(&mut self, cursor_id: usize, input: CursorInput) {
+    fn draw_cursor(&self, cursor: &Cursor, x1: f32, x2: f32, y_first_line: f32) {}
+
+    fn cursor_up(&mut self, cursor_id: usize) {
         let cursor = &mut self.cursors[cursor_id];
-        if input.is_arrow() {
-            match input {
-                CursorInput::ArrUp => {
-                    if cursor.position.0 != 0 {
-                        cursor.position.0 -= 1;
-                        cursor.position.1 =
-                            min(self.file[cursor.position.0].len(), cursor.normal_x);
-                    }
-                }
-                CursorInput::ArrDown => {
-                    if cursor.position.0 < self.file.len() - 1 {
-                        cursor.position.0 += 1;
-                        cursor.position.1 =
-                            min(self.file[cursor.position.0].len(), cursor.normal_x);
-                    }
-                }
-                CursorInput::ArrLeft | CursorInput::ArrRight => {
-                    if cursor.selection_pos != cursor.position {
-                        // adjust selection to one of the sides
-                        if input == CursorInput::ArrLeft {
-                            if cursor.selection_pos.0 < cursor.position.0
-                                || (cursor.selection_pos.0 == cursor.position.0
-                                    && cursor.selection_pos.1 < cursor.position.1)
-                            {
-                                cursor.position = cursor.selection_pos;
-                            } else {
-                                cursor.selection_pos = cursor.position;
-                            }
-                        } else {
-                            if cursor.selection_pos.0 < cursor.position.0
-                                || (cursor.selection_pos.0 == cursor.position.0
-                                    && cursor.selection_pos.1 < cursor.position.1)
-                            {
-                                cursor.selection_pos = cursor.position;
-                            } else {
-                                cursor.position = cursor.selection_pos;
-                            }
-                        }
-                    } else {
-                        // increase/decrease cursor index
-                        if input == CursorInput::ArrLeft {
-                            if cursor.position.1 == 0 {
-                                if cursor.position.0 != 0 {
-                                    cursor.position.0 -= 1;
-                                    cursor.position.1 = self.file[cursor.position.0].len();
-                                }
-                            } else {
-                                cursor.position.1 -= 1;
-                            }
-                        } else {
-                            if cursor.position.0 < self.file.len() {
-                                if cursor.position.1 == self.file[cursor.position.0].len() {
-                                    if cursor.position.0 < self.file.len() - 1 {
-                                        cursor.position.0 += 1;
-                                        cursor.position.1 = 0;
-                                    }
-                                } else {
-                                    cursor.position.1 += 1;
-                                }
-                            }
-                        }
-                    }
-                    cursor.normal_x = cursor.position.1;
-                }
-                _ => {}
-            }
+        if cursor.position.0 != 0 {
+            cursor.position.0 -= 1;
+            cursor.position.1 = min(self.file[cursor.position.0].len(), cursor.normal_x);
             cursor.selection_pos = cursor.position;
-        } else if input.is_shift_arrow() {
-            match input {
-                CursorInput::ShiftArrUp => {
-                    if cursor.position.0 != 0 {
-                        cursor.position.0 -= 1;
-                        cursor.position.1 =
-                            min(self.file[cursor.position.0].len(), cursor.normal_x);
-                    }
-                }
-                CursorInput::ShiftArrDown => {
-                    if cursor.position.0 < self.file.len() - 1 {
-                        cursor.position.0 += 1;
-                        cursor.position.1 =
-                            min(self.file[cursor.position.0].len(), cursor.normal_x);
-                    }
-                }
-                CursorInput::ShiftArrLeft | CursorInput::ShiftArrRight => {
-                    // increase/decrease cursor index
-                    if input == CursorInput::ShiftArrLeft {
-                        if cursor.position.1 == 0 {
-                            if cursor.position.0 != 0 {
-                                cursor.position.0 -= 1;
-                                cursor.position.1 = self.file[cursor.position.0].len();
-                            }
-                        } else {
-                            cursor.position.1 -= 1;
-                        }
-                    } else {
-                        if cursor.position.0 < self.file.len() {
-                            if cursor.position.1 == self.file[cursor.position.0].len() {
-                                if cursor.position.0 < self.file.len() - 1 {
-                                    cursor.position.0 += 1;
-                                    cursor.position.1 = 0;
-                                }
-                            } else {
-                                cursor.position.1 += 1;
-                            }
-                        }
-                    }
-                    cursor.normal_x = cursor.position.1;
-                }
-                _ => {}
+        }
+    }
+
+    fn cursor_down(&mut self, cursor_id: usize) {
+        let cursor = &mut self.cursors[cursor_id];
+        if cursor.position.0 < self.file.len() - 1 {
+            cursor.position.0 += 1;
+            cursor.position.1 = min(self.file[cursor.position.0].len(), cursor.normal_x);
+            cursor.selection_pos = cursor.position;
+        }
+    }
+
+    fn cursor_left(&mut self, cursor_id: usize) {
+        let cursor = &mut self.cursors[cursor_id];
+        if cursor.selection_pos != cursor.position {
+            // adjust selection to the left side
+            if cursor.selection_pos.0 < cursor.position.0
+                || (cursor.selection_pos.0 == cursor.position.0
+                    && cursor.selection_pos.1 < cursor.position.1)
+            {
+                cursor.position = cursor.selection_pos;
+            } else {
+                cursor.selection_pos = cursor.position;
             }
         } else {
-            if cursor.selection_pos.0 != cursor.position.0 {
-                let (min_span, max_span) = if cursor.selection_pos.0 < cursor.position.0 {
-                    (cursor.selection_pos, cursor.position)
-                } else {
-                    (cursor.position, cursor.selection_pos)
-                };
-                if input != CursorInput::Tab {
-                    for _ in (min_span.0 + 1)..max_span.0 {
-                        self.file[cursor.position.0].remove(min_span.0 + 1);
-                    }
-                }
-                match input {
-                    CursorInput::Return => {
-                        self.file[min_span.0] = (&self.file[min_span.0][..min_span.1]).to_owned();
-                        self.file[min_span.0 + 1] =
-                            (&self.file[min_span.0 + 1][max_span.1..]).to_owned();
-                        cursor.position = (min_span.0 + 1, 0);
-                    }
-                    CursorInput::Tab => {
-                        for i in min_span.0..=max_span.0 {
-                            for _ in 0..self.tab_length {
-                                self.file[i].insert(0, ' ');
-                            }
-                        }
-                        cursor.position.1 += self.tab_length;
-                        cursor.selection_pos.1 += self.tab_length;
-                    }
-                    CursorInput::Character(ch) => {
-                        while self.file[min_span.0].len() > min_span.1 {
-                            self.file[min_span.0].pop();
-                        }
-                        let mut next_line = vec![ch];
-                        for i in max_span.1..self.file[min_span.0 + 1].len() {
-                            next_line.push(self.file[min_span.0 + 1][i]);
-                        }
-                        self.file[min_span.0].append(&mut next_line);
-                        self.file.remove(min_span.0 + 1);
-                        cursor.position = (min_span.0, min_span.1 + 1);
-                    }
-                    CursorInput::Delete => {
-                        while self.file[min_span.0].len() > min_span.1 {
-                            self.file[min_span.0].pop();
-                        }
-                        let mut next_line = vec![];
-                        for i in max_span.1..self.file[min_span.0 + 1].len() {
-                            next_line.push(self.file[min_span.0 + 1][i]);
-                        }
-                        self.file[min_span.0].append(&mut next_line);
-                        self.file.remove(min_span.0 + 1);
-                        cursor.position = min_span;
-                    }
-                    CursorInput::Backspace => {
-                        while self.file[min_span.0].len() > min_span.1 {
-                            self.file[min_span.0].pop();
-                        }
-                        let mut next_line = vec![];
-                        for i in max_span.1..self.file[min_span.0 + 1].len() {
-                            next_line.push(self.file[min_span.0 + 1][i]);
-                        }
-                        self.file[min_span.0].append(&mut next_line);
-                        self.file.remove(min_span.0 + 1);
-                        cursor.position = min_span;
-                    }
-                    _ => {}
-                }
-                if input != CursorInput::Tab {
-                    cursor.selection_pos = cursor.position;
+            // decrease cursor index
+            if cursor.position.1 == 0 {
+                if cursor.position.0 != 0 {
+                    cursor.position.0 -= 1;
+                    cursor.position.1 = self.file[cursor.position.0].len();
                 }
             } else {
-                let (min_span, max_span) = if cursor.selection_pos.1 < cursor.position.1 {
-                    (cursor.selection_pos.1, cursor.position.1)
-                } else {
-                    (cursor.position.1, cursor.selection_pos.1)
-                };
-                match input {
-                    CursorInput::Return => {
-                        let first_line = (&self.file[cursor.position.0][..min_span]).to_owned();
-                        let second_line = (&self.file[cursor.position.0][max_span..]).to_owned();
-                        self.file[cursor.position.0] = first_line.to_owned();
-                        self.file.insert(cursor.position.0 + 1, second_line);
+                cursor.position.1 -= 1;
+            }
+        }
+        cursor.normal_x = cursor.position.1;
+        cursor.selection_pos = cursor.position;
+    }
+
+    fn cursor_right(&mut self, cursor_id: usize) {
+        let cursor = &mut self.cursors[cursor_id];
+        if cursor.selection_pos != cursor.position {
+            // adjust selection to the right side
+            if cursor.selection_pos.0 < cursor.position.0
+                || (cursor.selection_pos.0 == cursor.position.0
+                    && cursor.selection_pos.1 < cursor.position.1)
+            {
+                cursor.selection_pos = cursor.position;
+            } else {
+                cursor.position = cursor.selection_pos;
+            }
+        } else {
+            // increase cursor index
+            if cursor.position.0 < self.file.len() {
+                if cursor.position.1 == self.file[cursor.position.0].len() {
+                    if cursor.position.0 < self.file.len() - 1 {
                         cursor.position.0 += 1;
                         cursor.position.1 = 0;
-                        cursor.selection_pos = cursor.position;
                     }
-                    CursorInput::Tab => {
-                        if max_span - min_span > 0 {
-                            for _ in 0..self.tab_length {
-                                self.file[cursor.position.0].insert(cursor.position.1, ' ');
-                            }
-                            cursor.position.1 += self.tab_length;
-                            cursor.selection_pos.1 += self.tab_length;
-                        } else {
-                            let len = self.tab_length - cursor.position.1 % self.tab_length;
-                            for _ in 0..len {
-                                self.file[cursor.position.0].insert(cursor.position.1, ' ');
-                            }
-                            cursor.position.1 += len;
-                            cursor.selection_pos.1 = cursor.position.1;
-                        }
-                    }
-                    CursorInput::Character(ch) => {
-                        for _ in min_span..max_span {
-                            self.file[cursor.position.0].remove(min_span);
-                        }
-                        self.file[cursor.position.0].insert(min_span, ch);
-                        // .replace_range(min_span..max_span, &String::from(ch));
-                        cursor.position.1 = min_span + 1;
-                        cursor.selection_pos.1 = min_span + 1;
-                    }
-                    CursorInput::Delete => {
-                        if min_span == max_span {
-                            if min_span == self.file[cursor.position.0].len() {
-                                if cursor.position.0 < self.file.len() - 1 {
-                                    let mut line = self.file.remove(cursor.position.0 + 1);
-                                    self.file[cursor.position.0].append(&mut line);
-                                }
-                            } else {
-                                self.file[cursor.position.0].remove(min_span);
-                            }
-                        } else {
-                            for _ in min_span..max_span {
-                                self.file[cursor.position.0].remove(min_span);
-                            }
-                            cursor.position.1 = min_span;
-                            cursor.selection_pos.1 = min_span;
-                        }
-                    }
-                    CursorInput::Backspace => {
-                        if min_span == max_span {
-                            if min_span == 0 {
-                                if cursor.position.0 > 0 {
-                                    let mut line = self.file.remove(cursor.position.0);
-                                    cursor.position = (
-                                        cursor.position.0 - 1,
-                                        self.file[cursor.position.0 - 1].len(),
-                                    );
-                                    self.file[cursor.position.0].append(&mut line);
-                                    cursor.selection_pos = cursor.position;
-                                }
-                            } else {
-                                println!("{:?}, {:?}", min_span, max_span);
-                                self.file[cursor.position.0].remove(min_span - 1);
-                                cursor.position.1 -= 1;
-                                cursor.selection_pos.1 -= 1;
-                            }
-                        } else {
-                            for _ in min_span..max_span {
-                                self.file[cursor.position.0].remove(min_span);
-                            }
-                            cursor.position.1 = min_span;
-                            cursor.selection_pos.1 = min_span;
-                        }
-                    }
-                    _ => {}
+                } else {
+                    cursor.position.1 += 1;
                 }
             }
-            cursor.normal_x = cursor.position.1;
+        }
+        cursor.normal_x = cursor.position.1;
+        cursor.selection_pos = cursor.position;
+    }
+
+    fn cursor_selection_up(&mut self, cursor_id: usize) {
+        let cursor = &mut self.cursors[cursor_id];
+        if cursor.position.0 != 0 {
+            cursor.position.0 -= 1;
+            cursor.position.1 = min(self.file[cursor.position.0].len(), cursor.normal_x);
+        }
+    }
+    fn cursor_selection_down(&mut self, cursor_id: usize) {
+        let cursor = &mut self.cursors[cursor_id];
+        if cursor.position.0 < self.file.len() - 1 {
+            cursor.position.0 += 1;
+            cursor.position.1 = min(self.file[cursor.position.0].len(), cursor.normal_x);
+        }
+    }
+    fn cursor_selection_left(&mut self, cursor_id: usize) {
+        let cursor = &mut self.cursors[cursor_id];
+        // decrease cursor index
+        if cursor.position.1 == 0 {
+            if cursor.position.0 != 0 {
+                cursor.position.0 -= 1;
+                cursor.position.1 = self.file[cursor.position.0].len();
+            }
+        } else {
+            cursor.position.1 -= 1;
+        }
+        cursor.normal_x = cursor.position.1;
+    }
+    fn cursor_selection_right(&mut self, cursor_id: usize) {
+        let cursor = &mut self.cursors[cursor_id];
+        // increase/decrease cursor index
+        if cursor.position.0 < self.file.len() {
+            if cursor.position.1 == self.file[cursor.position.0].len() {
+                if cursor.position.0 < self.file.len() - 1 {
+                    cursor.position.0 += 1;
+                    cursor.position.1 = 0;
+                }
+            } else {
+                cursor.position.1 += 1;
+            }
+        }
+        cursor.normal_x = cursor.position.1;
+    }
+
+    fn cursor_handle_return(&mut self, cursor_id: usize) {
+        let mut cursor = self.cursors[cursor_id];
+        if cursor.selection_pos.0 != cursor.position.0 {
+            let (min_span, max_span) = if cursor.selection_pos.0 < cursor.position.0 {
+                (cursor.selection_pos, cursor.position)
+            } else {
+                (cursor.position, cursor.selection_pos)
+            };
+            self.cursor_remove_absorbed_lines(&cursor);
+            self.file[min_span.0] = (&self.file[min_span.0][..min_span.1]).to_owned();
+            // because of removed lines cursor pointer with max spin now has line pointer on min_spin.line + 1
+            self.file[min_span.0 + 1] = (&self.file[min_span.0 + 1][max_span.1..]).to_owned();
+            cursor.position = (min_span.0 + 1, 0);
+        } else {
+            let (min_span, max_span) = if cursor.selection_pos.1 < cursor.position.1 {
+                (cursor.selection_pos.1, cursor.position.1)
+            } else {
+                (cursor.position.1, cursor.selection_pos.1)
+            };
+            let first_line = (&self.file[cursor.position.0][..min_span]).to_owned();
+            let second_line = (&self.file[cursor.position.0][max_span..]).to_owned();
+            self.file[cursor.position.0] = first_line.to_owned();
+            self.file.insert(cursor.position.0 + 1, second_line);
+            cursor.position.0 += 1;
+            cursor.position.1 = 0;
+        }
+
+        self.cursor_sync_cords(cursor, cursor_id);
+    }
+
+    fn cursor_handle_tab(&mut self, cursor_id: usize) {
+        let cursor = &mut self.cursors[cursor_id];
+        if cursor.selection_pos.0 != cursor.position.0 {
+            let (min_span, max_span) = if cursor.selection_pos.0 < cursor.position.0 {
+                (cursor.selection_pos, cursor.position)
+            } else {
+                (cursor.position, cursor.selection_pos)
+            };
+            for i in min_span.0..=max_span.0 {
+                for _ in 0..self.tab_length {
+                    self.file[i].insert(0, ' ');
+                }
+            }
+            cursor.position.1 += self.tab_length;
+            cursor.selection_pos.1 += self.tab_length;
+        } else {
+            let (min_span, max_span) = if cursor.selection_pos.1 < cursor.position.1 {
+                (cursor.selection_pos.1, cursor.position.1)
+            } else {
+                (cursor.position.1, cursor.selection_pos.1)
+            };
+            if max_span - min_span > 0 {
+                for _ in 0..self.tab_length {
+                    self.file[cursor.position.0].insert(cursor.position.1, ' ');
+                }
+                cursor.position.1 += self.tab_length;
+                cursor.selection_pos.1 += self.tab_length;
+            } else {
+                let len = self.tab_length - cursor.position.1 % self.tab_length;
+                for _ in 0..len {
+                    self.file[cursor.position.0].insert(cursor.position.1, ' ');
+                }
+                cursor.position.1 += len;
+                cursor.selection_pos.1 = cursor.position.1;
+            }
+        }
+        cursor.normal_x = cursor.position.1;
+    }
+
+    fn cursor_handle_delete(&mut self, cursor_id: usize) {
+        let mut cursor = self.cursors[cursor_id];
+
+        if cursor.selection_pos.0 != cursor.position.0 {
+            let (min_span, max_span) = if cursor.selection_pos.0 < cursor.position.0 {
+                (cursor.selection_pos, cursor.position)
+            } else {
+                (cursor.position, cursor.selection_pos)
+            };
+            self.cursor_remove_absorbed_lines(&cursor);
+            while self.file[min_span.0].len() > min_span.1 {
+                self.file[min_span.0].pop();
+            }
+            let mut next_line = vec![];
+            for i in max_span.1..self.file[min_span.0 + 1].len() {
+                next_line.push(self.file[min_span.0 + 1][i]);
+            }
+            self.file[min_span.0].append(&mut next_line);
+            self.file.remove(min_span.0 + 1);
+            cursor.position = min_span;
+        } else {
+            let (min_span, max_span) = if cursor.selection_pos.1 < cursor.position.1 {
+                (cursor.selection_pos.1, cursor.position.1)
+            } else {
+                (cursor.position.1, cursor.selection_pos.1)
+            };
+            if min_span == max_span {
+                if min_span == self.file[cursor.position.0].len() {
+                    if cursor.position.0 < self.file.len() - 1 {
+                        let mut line = self.file.remove(cursor.position.0 + 1);
+                        self.file[cursor.position.0].append(&mut line);
+                    }
+                } else {
+                    self.file[cursor.position.0].remove(min_span);
+                }
+            } else {
+                for _ in min_span..max_span {
+                    self.file[cursor.position.0].remove(min_span);
+                }
+                cursor.position.1 = min_span;
+            }
+        }
+
+        self.cursor_sync_cords(cursor, cursor_id);
+    }
+
+    fn cursor_handle_backspace(&mut self, cursor_id: usize) {
+        let mut cursor = self.cursors[cursor_id];
+
+        if cursor.selection_pos.0 != cursor.position.0 {
+            let (min_span, max_span) = if cursor.selection_pos.0 < cursor.position.0 {
+                (cursor.selection_pos, cursor.position)
+            } else {
+                (cursor.position, cursor.selection_pos)
+            };
+            self.cursor_remove_absorbed_lines(&cursor);
+            while self.file[min_span.0].len() > min_span.1 {
+                self.file[min_span.0].pop();
+            }
+            let mut next_line = vec![];
+            for i in max_span.1..self.file[min_span.0 + 1].len() {
+                next_line.push(self.file[min_span.0 + 1][i]);
+            }
+            self.file[min_span.0].append(&mut next_line);
+            self.file.remove(min_span.0 + 1);
+            cursor.position = min_span;
+        } else {
+            let (min_span, max_span) = if cursor.selection_pos.1 < cursor.position.1 {
+                (cursor.selection_pos.1, cursor.position.1)
+            } else {
+                (cursor.position.1, cursor.selection_pos.1)
+            };
+            if min_span == max_span {
+                if min_span == 0 {
+                    if cursor.position.0 > 0 {
+                        let mut line = self.file.remove(cursor.position.0);
+                        cursor.position = (
+                            cursor.position.0 - 1,
+                            self.file[cursor.position.0 - 1].len(),
+                        );
+                        self.file[cursor.position.0].append(&mut line);
+                        cursor.selection_pos = cursor.position;
+                    }
+                } else {
+                    self.file[cursor.position.0].remove(min_span - 1);
+                    cursor.position.1 -= 1;
+                }
+            } else {
+                for _ in min_span..max_span {
+                    self.file[cursor.position.0].remove(min_span);
+                }
+                cursor.position.1 = min_span;
+            }
+        }
+
+        self.cursor_sync_cords(cursor, cursor_id)
+    }
+
+    fn cursor_handle_char(&mut self, cursor_id: usize, ch: char) {
+        let mut cursor = self.cursors[cursor_id];
+
+        if cursor.selection_pos.0 != cursor.position.0 {
+            let (min_span, max_span) = if cursor.selection_pos.0 < cursor.position.0 {
+                (cursor.selection_pos, cursor.position)
+            } else {
+                (cursor.position, cursor.selection_pos)
+            };
+            self.cursor_remove_absorbed_lines(&cursor);
+            while self.file[min_span.0].len() > min_span.1 {
+                self.file[min_span.0].pop();
+            }
+            let mut next_line = vec![ch];
+            for i in max_span.1..self.file[min_span.0 + 1].len() {
+                next_line.push(self.file[min_span.0 + 1][i]);
+            }
+            self.file[min_span.0].append(&mut next_line);
+            self.file.remove(min_span.0 + 1);
+            cursor.position = (min_span.0, min_span.1 + 1);
+        } else {
+            let (min_span, max_span) = if cursor.selection_pos.1 < cursor.position.1 {
+                (cursor.selection_pos.1, cursor.position.1)
+            } else {
+                (cursor.position.1, cursor.selection_pos.1)
+            };
+            for _ in min_span..max_span {
+                self.file[cursor.position.0].remove(min_span);
+            }
+            self.file[cursor.position.0].insert(min_span, ch);
+            // .replace_range(min_span..max_span, &String::from(ch));
+            cursor.position.1 = min_span + 1;
+        }
+
+        self.cursor_sync_cords(cursor, cursor_id)
+    }
+
+    fn cursor_remove_absorbed_lines(&mut self, cursor: &Cursor) {
+        let (min_span, max_span) = if cursor.selection_pos.0 < cursor.position.0 {
+            (cursor.selection_pos.0, cursor.position.0)
+        } else {
+            (cursor.position.0, cursor.selection_pos.0)
+        };
+        for _ in (min_span + 1)..max_span {
+            self.file.remove(min_span + 1);
+        }
+    }
+
+    fn cursor_sync_cords(&mut self, mut cursor: Cursor, cursor_id: usize) {
+        cursor.selection_pos = cursor.position;
+        cursor.normal_x = cursor.position.1;
+
+        self.cursors[cursor_id] = cursor;
+    }
+
+    pub fn handle_cursor_input(&mut self, cursor_id: usize, input: Key, modifiers: &Modifiers) {
+        match input {
+            Key::Named(key) => match key {
+                NamedKey::ArrowUp => {
+                    if modifiers.state().shift_key() {
+                        self.cursor_selection_up(cursor_id)
+                    } else {
+                        self.cursor_up(cursor_id)
+                    }
+                }
+                NamedKey::ArrowDown => {
+                    if modifiers.state().shift_key() {
+                        self.cursor_selection_down(cursor_id)
+                    } else {
+                        self.cursor_down(cursor_id)
+                    }
+                }
+                NamedKey::ArrowLeft => {
+                    if modifiers.state().shift_key() {
+                        self.cursor_selection_left(cursor_id)
+                    } else {
+                        self.cursor_left(cursor_id)
+                    }
+                }
+                NamedKey::ArrowRight => {
+                    if modifiers.state().shift_key() {
+                        self.cursor_selection_right(cursor_id)
+                    } else {
+                        self.cursor_right(cursor_id)
+                    }
+                }
+                NamedKey::Tab => self.cursor_handle_tab(cursor_id),
+                NamedKey::Delete => self.cursor_handle_delete(cursor_id),
+                NamedKey::Enter => self.cursor_handle_return(cursor_id),
+                NamedKey::Backspace => self.cursor_handle_backspace(cursor_id),
+                _ => {}
+            },
+            Key::Character(ref ch) => {
+                let v = ch.chars().collect::<Vec<char>>();
+                self.cursor_handle_char(cursor_id, v[0])
+            }
+            _ => {}
         }
     }
 }
@@ -786,30 +773,7 @@ impl ApplicationState {
     }
 }
 
-#[cfg(feature = "gl-render")]
 fn main() {
-    use std::{
-        collections::HashMap,
-        ffi::CString,
-        num::NonZeroU32,
-        time::{Duration, Instant},
-    };
-
-    use gl::types::*;
-    use glutin::{
-        config::{ConfigTemplateBuilder, GlConfig},
-        context::{ContextApi, ContextAttributesBuilder, PossiblyCurrentContext},
-        display::{GetGlDisplay, GlDisplay},
-        prelude::{GlSurface, NotCurrentGlContext},
-        surface::{Surface as GlutinSurface, SurfaceAttributesBuilder, WindowSurface},
-    };
-    use glutin_winit::DisplayBuilder;
-    use raw_window_handle::HasRawWindowHandle;
-
-    use skia_safe::{
-        gpu::{self, backend_render_targets, gl::FramebufferInfo, SurfaceOrigin},
-        ColorType, Surface,
-    };
     let mut app = ApplicationState {
         monospace_font: Font::new(
             FontMgr::new()
@@ -838,6 +802,14 @@ fn main() {
         },
     };
 
+    // let font_mgr = FontMgr::new();
+    // let svg = r##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" height = "100" width = "100">
+    //     <path d="M30,1h40l29,29v40l-29,29h-40l-29-29v-40z" stroke="#;000" fill="none"/>
+    //     <path d="M31,3h38l28,28v38l-28,28h-38l-28-28v-38z" fill="#a23"/>
+    //     <text x="50" y="68" font-size="48" fill="#FFF" text-anchor="middle"><![CDATA[410]]></text>
+    //     </svg>"##;
+    // let dom = SvgDom::from_str(svg, font_mgr).unwrap();
+
     let el = EventLoop::new().expect("Failed to create event loop");
     let winit_window_builder = WindowBuilder::new()
         .with_title("rust-skia-gl-window")
@@ -845,161 +817,12 @@ fn main() {
         .with_transparent(true)
         .with_blur(true);
 
-    let template = ConfigTemplateBuilder::new()
-        .with_alpha_size(8)
-        .with_transparency(true);
-
-    let display_builder = DisplayBuilder::new().with_window_builder(Some(winit_window_builder));
-    let (window, gl_config) = display_builder
-        .build(&el, template, |configs| {
-            // Find the config with the minimum number of samples. Usually Skia takes care of
-            // anti-aliasing and may not be able to create appropriate Surfaces for samples > 0.
-            // See https://github.com/rust-skia/rust-skia/issues/782
-            // And https://github.com/rust-skia/rust-skia/issues/764
-            configs
-                .reduce(|accum, config| {
-                    let transparency_check = config.supports_transparency().unwrap_or(false)
-                        & !accum.supports_transparency().unwrap_or(false);
-
-                    if transparency_check || config.num_samples() < accum.num_samples() {
-                        config
-                    } else {
-                        accum
-                    }
-                })
-                .unwrap()
-        })
-        .unwrap();
-    println!("Picked a config with {} samples", gl_config.num_samples());
-    let window = window.expect("Could not create window with OpenGL context");
-    let raw_window_handle = window.raw_window_handle();
-
-    // The context creation part. It can be created before surface and that's how
-    // it's expected in multithreaded + multiwindow operation mode, since you
-    // can send NotCurrentContext, but not Surface.
-    let context_attributes = ContextAttributesBuilder::new().build(Some(raw_window_handle));
-
-    // Since glutin by default tries to create OpenGL core context, which may not be
-    // present we should try gles.
-    let fallback_context_attributes = ContextAttributesBuilder::new()
-        .with_context_api(ContextApi::Gles(None))
-        .build(Some(raw_window_handle));
-    let not_current_gl_context = unsafe {
-        gl_config
-            .display()
-            .create_context(&gl_config, &context_attributes)
-            .unwrap_or_else(|_| {
-                gl_config
-                    .display()
-                    .create_context(&gl_config, &fallback_context_attributes)
-                    .expect("failed to create context")
-            })
-    };
-
-    let (width, height): (u32, u32) = window.inner_size().into();
-
-    let attrs = SurfaceAttributesBuilder::<WindowSurface>::new().build(
-        raw_window_handle,
-        NonZeroU32::new(width).unwrap(),
-        NonZeroU32::new(height).unwrap(),
-    );
-
-    let gl_surface = unsafe {
-        gl_config
-            .display()
-            .create_window_surface(&gl_config, &attrs)
-            .expect("Could not create gl window surface")
-    };
-
-    let gl_context = not_current_gl_context
-        .make_current(&gl_surface)
-        .expect("Could not make GL context current when setting up skia renderer");
-
-    gl::load_with(|s| {
-        gl_config
-            .display()
-            .get_proc_address(CString::new(s).unwrap().as_c_str())
-    });
-    let interface = gpu::gl::Interface::new_load_with(|name| {
-        if name == "eglGetCurrentDisplay" {
-            return std::ptr::null();
-        }
-        gl_config
-            .display()
-            .get_proc_address(CString::new(name).unwrap().as_c_str())
-    })
-    .expect("Could not create interface");
-
-    let mut gr_context = skia_safe::gpu::DirectContext::new_gl(Some(interface), None)
-        .expect("Could not create direct context");
-
-    let fb_info = {
-        let mut fboid: GLint = 0;
-        unsafe { gl::GetIntegerv(gl::FRAMEBUFFER_BINDING, &mut fboid) };
-
-        FramebufferInfo {
-            fboid: fboid.try_into().unwrap(),
-            format: skia_safe::gpu::gl::Format::RGBA8.into(),
-            ..Default::default()
-        }
-    };
-
-    fn create_surface(
-        window: &Window,
-        fb_info: FramebufferInfo,
-        gr_context: &mut gpu::DirectContext,
-        num_samples: usize,
-        stencil_size: usize,
-    ) -> Surface {
-        let size = window.inner_size();
-        let size = (
-            size.width.try_into().expect("Could not convert width"),
-            size.height.try_into().expect("Could not convert height"),
-        );
-        let backend_render_target =
-            backend_render_targets::make_gl(size, num_samples, stencil_size, fb_info);
-
-        gpu::surfaces::wrap_backend_render_target(
-            gr_context,
-            &backend_render_target,
-            SurfaceOrigin::BottomLeft,
-            ColorType::RGBA8888,
-            None,
-            None,
-        )
-        .expect("Could not create skia surface")
-    }
-    let num_samples = gl_config.num_samples() as usize;
-    let stencil_size = gl_config.stencil_size() as usize;
-
-    let surface = create_surface(&window, fb_info, &mut gr_context, num_samples, stencil_size);
-
-    let mut frame = 0usize;
-
-    // Guarantee the drop order inside the FnMut closure. `Window` _must_ be dropped after
-    // `DirectContext`.
-    //
-    // https://github.com/rust-skia/rust-skia/issues/476
-    struct Env {
-        surface: Surface,
-        gl_surface: GlutinSurface<WindowSurface>,
-        gr_context: skia_safe::gpu::DirectContext,
-        gl_context: PossiblyCurrentContext,
-        window: Window,
-    }
-
-    let mut env = Env {
-        surface,
-        gl_surface,
-        gl_context,
-        gr_context,
-        window,
-    };
+    let mut env = SkiaEnv::new(winit_window_builder, &el);
     let mut previous_frame_start = Instant::now();
     let mut modifiers = Modifiers::default();
     let expected_frame_length_seconds = 1.0 / 60.0;
     let frame_duration = Duration::from_secs_f32(expected_frame_length_seconds);
-    let mut key_pressed = false;
+    let mut frame = 0usize;
 
     let mut keypress_map: HashMap<PhysicalKey, bool> = HashMap::new();
     el.run(move |event, window_target| {
@@ -1009,25 +832,12 @@ fn main() {
         if let Event::WindowEvent { event, .. } = event {
             match event {
                 WindowEvent::CloseRequested => {
+                    // app.close();
                     window_target.exit();
                     return;
                 }
                 WindowEvent::Resized(physical_size) => {
-                    env.surface = create_surface(
-                        &env.window,
-                        fb_info,
-                        &mut env.gr_context,
-                        num_samples,
-                        stencil_size,
-                    );
-                    /* First resize the opengl drawable */
-                    let (width, height): (u32, u32) = physical_size.into();
-
-                    env.gl_surface.resize(
-                        &env.gl_context,
-                        NonZeroU32::new(width.max(1)).unwrap(),
-                        NonZeroU32::new(height.max(1)).unwrap(),
-                    );
+                    env.on_resize(physical_size);
                 }
                 WindowEvent::ModifiersChanged(new_modifiers) => modifiers = new_modifiers,
                 WindowEvent::KeyboardInput {
@@ -1049,90 +859,12 @@ fn main() {
 
                     if !keypress_map[&physical_key] || repeat {
                         if !modifiers.state().super_key() && !modifiers.state().control_key() {
-                            let cursors = app.test_editor.cursors.clone();
-                            for (id, cursor) in &mut cursors.iter().enumerate() {
-                                // let mut start_line = cursor.0;
-                                // let mut start_char = cursor.1;
-                                // let mut line = cursor.2;
-                                // let mut ch = cursor.3;
-                                match logical_key {
-                                    Key::Character(ref ch) => {
-                                        let v = ch.chars().collect::<Vec<char>>();
-                                        // println!("{:?}", v);
-                                        app.test_editor
-                                            .handle_cursor_input(id, CursorInput::Character(v[0]));
-                                    }
-                                    Key::Named(key) => match key {
-                                        NamedKey::ArrowUp => {
-                                            if modifiers.state().shift_key() {
-                                                app.test_editor.handle_cursor_input(
-                                                    id,
-                                                    CursorInput::ShiftArrUp,
-                                                );
-                                            } else {
-                                                app.test_editor
-                                                    .handle_cursor_input(id, CursorInput::ArrUp);
-                                            }
-                                        }
-                                        NamedKey::ArrowDown => {
-                                            if modifiers.state().shift_key() {
-                                                app.test_editor.handle_cursor_input(
-                                                    id,
-                                                    CursorInput::ShiftArrDown,
-                                                );
-                                            } else {
-                                                app.test_editor
-                                                    .handle_cursor_input(id, CursorInput::ArrDown);
-                                            }
-                                        }
-                                        NamedKey::ArrowLeft => {
-                                            if modifiers.state().shift_key() {
-                                                app.test_editor.handle_cursor_input(
-                                                    id,
-                                                    CursorInput::ShiftArrLeft,
-                                                );
-                                            } else {
-                                                app.test_editor
-                                                    .handle_cursor_input(id, CursorInput::ArrLeft);
-                                            }
-                                        }
-                                        NamedKey::ArrowRight => {
-                                            if modifiers.state().shift_key() {
-                                                app.test_editor.handle_cursor_input(
-                                                    id,
-                                                    CursorInput::ShiftArrRight,
-                                                );
-                                            } else {
-                                                app.test_editor
-                                                    .handle_cursor_input(id, CursorInput::ArrRight);
-                                            }
-                                        }
-                                        NamedKey::Backspace => {
-                                            app.test_editor
-                                                .handle_cursor_input(id, CursorInput::Backspace);
-                                        }
-                                        NamedKey::Enter => {
-                                            app.test_editor
-                                                .handle_cursor_input(id, CursorInput::Return);
-                                        }
-                                        NamedKey::Tab => {
-                                            app.test_editor
-                                                .handle_cursor_input(id, CursorInput::Tab);
-                                        }
-                                        NamedKey::Delete => {
-                                            app.test_editor
-                                                .handle_cursor_input(id, CursorInput::Delete);
-                                        }
-                                        NamedKey::Space => {
-                                            app.test_editor.handle_cursor_input(
-                                                id,
-                                                CursorInput::Character(' '),
-                                            );
-                                        }
-                                        _ => {}
-                                    },
-                                    _ => {}
-                                }
+                            for id in 0..app.test_editor.cursors.len() {
+                                app.test_editor.handle_cursor_input(
+                                    id,
+                                    logical_key.clone(),
+                                    &modifiers,
+                                );
                             }
                         }
                     }
@@ -1141,7 +873,7 @@ fn main() {
                         keypress_map.insert(physical_key, !b);
                     }
                     frame = frame.saturating_sub(10);
-                    env.window.request_redraw();
+                    env.request_redraw();
                 }
                 WindowEvent::RedrawRequested => {
                     draw_frame = true;
@@ -1155,11 +887,10 @@ fn main() {
         }
         if draw_frame {
             frame += 1;
-            let canvas = env.surface.canvas();
+            let canvas = env.canvas();
             app.draw(&canvas);
             // renderer::render_frame(frame % 360, 12, 60, canvas);
-            env.gr_context.flush_and_submit();
-            env.gl_surface.swap_buffers(&env.gl_context).unwrap();
+            env.draw();
         }
 
         window_target.set_control_flow(ControlFlow::WaitUntil(
