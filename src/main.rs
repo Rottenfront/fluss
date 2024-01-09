@@ -11,7 +11,7 @@ use winit::{
     dpi::LogicalSize,
     event::{Event, KeyEvent, Modifiers, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    keyboard::KeyCode,
+    keyboard::{Key, KeyCode, NamedKey, PhysicalKey},
     window::{Window, WindowBuilder},
 };
 
@@ -323,12 +323,13 @@ struct Cursor {
 }
 
 pub struct EditorState {
-    file: Vec<String>,
+    file: Vec<Vec<char>>,
     name: String,
     path: Option<PathBuf>,
     scroll: (f32, f32),
     // spans: Binding<Vec<(usize, usize, usize, usize, SpanType)>>,
     cursors: Vec<Cursor>,
+    tab_length: usize,
 }
 #[derive(PartialEq, Eq)]
 pub enum Arrow {
@@ -336,6 +337,38 @@ pub enum Arrow {
     Up,
     Right,
     Down,
+}
+
+#[derive(PartialEq, Eq)]
+pub enum CursorInput {
+    ArrLeft,
+    ArrUp,
+    ArrRight,
+    ArrDown,
+    ShiftArrLeft,
+    ShiftArrUp,
+    ShiftArrRight,
+    ShiftArrDown,
+    Backspace,
+    Return,
+    Delete,
+    Tab,
+    Character(char),
+}
+
+impl CursorInput {
+    pub fn is_arrow(&self) -> bool {
+        *self == CursorInput::ArrUp
+            || *self == CursorInput::ArrLeft
+            || *self == CursorInput::ArrDown
+            || *self == CursorInput::ArrRight
+    }
+    pub fn is_shift_arrow(&self) -> bool {
+        *self == CursorInput::ShiftArrUp
+            || *self == CursorInput::ShiftArrLeft
+            || *self == CursorInput::ShiftArrDown
+            || *self == CursorInput::ShiftArrRight
+    }
 }
 
 const DISTANCE_BETWEEN_NUMBER_AND_LINE: f32 = 20.0;
@@ -366,7 +399,8 @@ impl EditorState {
         monospace_font.get_widths(&[25], &mut font_width);
         let font_width = font_width[0];
         let number_len = number.len() as f32 * font_width;
-        let x1 = DISTANCE_BETWEEN_NUMBER_AND_LINE + x1 + number_len;
+        let x1 =
+            DISTANCE_BETWEEN_NUMBER_AND_LINE + x1 + number_len + DISTANCE_BETWEEN_NUMBER_AND_LINE;
 
         // Lines render
         // delta is distance between left-top corner of first displayed line and left-top corner of editor
@@ -374,87 +408,178 @@ impl EditorState {
         let y1 = y1 - delta_y + (1 - first_line) as f32 * font_height;
         for i in first_line..min(last_line, self.file.len()) {
             // Render line
-            canvas.draw_text_blob(
-                TextBlob::new(&self.file[i], monospace_font).unwrap(),
-                Point::new(
-                    x1 + DISTANCE_BETWEEN_NUMBER_AND_LINE,
-                    y1 + i as f32 * font_height,
-                ),
-                &Paint::new(Color4f::new(0.0, 0.0, 0.0, 1.0), None),
-            );
+            if !self.file[i].is_empty() {
+                canvas.draw_text_blob(
+                    TextBlob::new(&String::from_iter(&self.file[i]), monospace_font).unwrap(),
+                    Point::new(x1, y1 + i as f32 * font_height),
+                    &Paint::new(Color4f::new(0.0, 0.0, 0.0, 1.0), None),
+                );
+            }
             // Render number
             let linenum = format!("{i}");
             canvas.draw_text_blob(
                 TextBlob::new(&linenum, monospace_font).unwrap(),
                 Point::new(
-                    x1 - linenum.len() as f32 * font_width,
+                    x1 - DISTANCE_BETWEEN_NUMBER_AND_LINE - linenum.len() as f32 * font_width,
                     y1 + i as f32 * font_height,
                 ),
                 &Paint::new(Color4f::new(0.0, 0.0, 0.0, 1.0), None),
             );
-            // gc.begin_line_layout(
-            //     x1 - DISTANCE_BETWEEN_NUMBER_AND_LINE,
-            //     y1 + i as f32 * metrics.height,
-            //     TextAlignment::Right,
-            // );
-            // gc.layout_text(MONOSPACE_FONT, format!("{}", i + 1));
-            // gc.draw_text_layout();
         }
         for cursor in &self.cursors {
-            let mut selection_line = cursor.selection_pos.0;
-            let mut selection_char = cursor.selection_pos.1;
-            let mut line = cursor.position.0;
-            let mut ch = cursor.position.1;
-            let x = x1 + ch as f32 * font_width + DISTANCE_BETWEEN_NUMBER_AND_LINE;
+            let selection_line = cursor.selection_pos.0;
+            let selection_char = cursor.selection_pos.1;
+            let line = cursor.position.0;
+            let ch = cursor.position.1;
+            let x = x1 + ch as f32 * font_width;
             let y = y1 + line as f32 * font_height + (font_height - metrics.cap_height) / 2.0;
             canvas.draw_rect(
                 &Rect::from_ltrb(x - 1.0, y - font_height, x + 1.0, y),
                 &Paint::new(Color4f::new(0.0, 0.0, 1.0, 1.0), None),
             );
+            if selection_line == line {
+                if ch != selection_char {
+                    let sel_x = x1 + selection_char as f32 * font_width;
+                    let (min_x, max_x) = if sel_x < x { (sel_x, x) } else { (x, sel_x) };
+                    canvas.draw_rect(
+                        &Rect::from_ltrb(min_x, y - font_height, max_x, y),
+                        &Paint::new(Color4f::new(0.0, 0.0, 1.0, 0.3), None),
+                    );
+                }
+            } else {
+                let (min_span, max_span) = if cursor.selection_pos.0 < cursor.position.0 {
+                    (cursor.selection_pos, cursor.position)
+                } else {
+                    (cursor.position, cursor.selection_pos)
+                };
+                // min span
+                {
+                    let x = x1 + min_span.1 as f32 * font_width;
+                    let y = y1
+                        + min_span.0 as f32 * font_height
+                        + (font_height - metrics.cap_height) / 2.0;
+                    canvas.draw_rect(
+                        &Rect::from_ltrb(x, y - font_height, x2, y),
+                        &Paint::new(Color4f::new(0.0, 0.0, 1.0, 0.3), None),
+                    );
+                }
+                // max_span
+                {
+                    let x = x1 + max_span.1 as f32 * font_width;
+                    let y = y1
+                        + max_span.0 as f32 * font_height
+                        + (font_height - metrics.cap_height) / 2.0;
+                    canvas.draw_rect(
+                        &Rect::from_ltrb(x1, y - font_height, x, y),
+                        &Paint::new(Color4f::new(0.0, 0.0, 1.0, 0.3), None),
+                    );
+                }
+                // filled lines
+                if max_span.0 - min_span.1 > 1 {
+                    let min_y = y1
+                        + min_span.0 as f32 * font_height
+                        + (font_height - metrics.cap_height) / 2.0;
+                    let max_y = y1
+                        + (max_span.0 - 1) as f32 * font_height
+                        + (font_height - metrics.cap_height) / 2.0;
+                    canvas.draw_rect(
+                        &Rect::from_ltrb(x1, min_y, x2, max_y),
+                        &Paint::new(Color4f::new(0.0, 0.0, 1.0, 0.3), None),
+                    );
+                }
+            }
         }
         canvas.restore();
     }
 
-    pub fn handle_cursor_moved(&mut self, cursor_id: usize, arrow: Arrow) {
+    pub fn handle_cursor_input(&mut self, cursor_id: usize, input: CursorInput) {
         let cursor = &mut self.cursors[cursor_id];
-        match arrow {
-            Arrow::Up => {
-                if cursor.position.0 != 0 {
-                    cursor.position.0 -= 1;
-                    cursor.position.1 = min(self.file[cursor.position.0].len(), cursor.normal_x);
+        if input.is_arrow() {
+            match input {
+                CursorInput::ArrUp => {
+                    if cursor.position.0 != 0 {
+                        cursor.position.0 -= 1;
+                        cursor.position.1 =
+                            min(self.file[cursor.position.0].len(), cursor.normal_x);
+                    }
                 }
-            }
-            Arrow::Down => {
-                if cursor.position.0 < self.file.len() - 1 {
-                    cursor.position.0 += 1;
-                    cursor.position.1 = min(self.file[cursor.position.0].len(), cursor.normal_x);
+                CursorInput::ArrDown => {
+                    if cursor.position.0 < self.file.len() - 1 {
+                        cursor.position.0 += 1;
+                        cursor.position.1 =
+                            min(self.file[cursor.position.0].len(), cursor.normal_x);
+                    }
                 }
-            }
-            Arrow::Left | Arrow::Right => {
-                if cursor.selection_pos != cursor.position {
-                    // adjust selection to one of the sides
-                    if arrow == Arrow::Left {
-                        if cursor.selection_pos.0 < cursor.position.0
-                            || (cursor.selection_pos.0 == cursor.position.0
-                                && cursor.selection_pos.1 < cursor.position.1)
-                        {
-                            cursor.position = cursor.selection_pos;
+                CursorInput::ArrLeft | CursorInput::ArrRight => {
+                    if cursor.selection_pos != cursor.position {
+                        // adjust selection to one of the sides
+                        if input == CursorInput::ArrLeft {
+                            if cursor.selection_pos.0 < cursor.position.0
+                                || (cursor.selection_pos.0 == cursor.position.0
+                                    && cursor.selection_pos.1 < cursor.position.1)
+                            {
+                                cursor.position = cursor.selection_pos;
+                            } else {
+                                cursor.selection_pos = cursor.position;
+                            }
                         } else {
-                            cursor.selection_pos = cursor.position;
+                            if cursor.selection_pos.0 < cursor.position.0
+                                || (cursor.selection_pos.0 == cursor.position.0
+                                    && cursor.selection_pos.1 < cursor.position.1)
+                            {
+                                cursor.selection_pos = cursor.position;
+                            } else {
+                                cursor.position = cursor.selection_pos;
+                            }
                         }
                     } else {
-                        if cursor.selection_pos.0 < cursor.position.0
-                            || (cursor.selection_pos.0 == cursor.position.0
-                                && cursor.selection_pos.1 < cursor.position.1)
-                        {
-                            cursor.selection_pos = cursor.position;
+                        // increase/decrease cursor index
+                        if input == CursorInput::ArrLeft {
+                            if cursor.position.1 == 0 {
+                                if cursor.position.0 != 0 {
+                                    cursor.position.0 -= 1;
+                                    cursor.position.1 = self.file[cursor.position.0].len();
+                                }
+                            } else {
+                                cursor.position.1 -= 1;
+                            }
                         } else {
-                            cursor.position = cursor.selection_pos;
+                            if cursor.position.0 < self.file.len() {
+                                if cursor.position.1 == self.file[cursor.position.0].len() {
+                                    if cursor.position.0 < self.file.len() - 1 {
+                                        cursor.position.0 += 1;
+                                        cursor.position.1 = 0;
+                                    }
+                                } else {
+                                    cursor.position.1 += 1;
+                                }
+                            }
                         }
                     }
-                } else {
+                    cursor.normal_x = cursor.position.1;
+                }
+                _ => {}
+            }
+            cursor.selection_pos = cursor.position;
+        } else if input.is_shift_arrow() {
+            match input {
+                CursorInput::ShiftArrUp => {
+                    if cursor.position.0 != 0 {
+                        cursor.position.0 -= 1;
+                        cursor.position.1 =
+                            min(self.file[cursor.position.0].len(), cursor.normal_x);
+                    }
+                }
+                CursorInput::ShiftArrDown => {
+                    if cursor.position.0 < self.file.len() - 1 {
+                        cursor.position.0 += 1;
+                        cursor.position.1 =
+                            min(self.file[cursor.position.0].len(), cursor.normal_x);
+                    }
+                }
+                CursorInput::ShiftArrLeft | CursorInput::ShiftArrRight => {
                     // increase/decrease cursor index
-                    if arrow == Arrow::Left {
+                    if input == CursorInput::ShiftArrLeft {
                         if cursor.position.1 == 0 {
                             if cursor.position.0 != 0 {
                                 cursor.position.0 -= 1;
@@ -475,11 +600,169 @@ impl EditorState {
                             }
                         }
                     }
+                    cursor.normal_x = cursor.position.1;
                 }
-                cursor.normal_x = cursor.position.1;
+                _ => {}
             }
+        } else {
+            if cursor.selection_pos.0 != cursor.position.0 {
+                let (min_span, max_span) = if cursor.selection_pos.0 < cursor.position.0 {
+                    (cursor.selection_pos, cursor.position)
+                } else {
+                    (cursor.position, cursor.selection_pos)
+                };
+                if input != CursorInput::Tab {
+                    for _ in (min_span.0 + 1)..max_span.0 {
+                        self.file[cursor.position.0].remove(min_span.0 + 1);
+                    }
+                }
+                match input {
+                    CursorInput::Return => {
+                        self.file[min_span.0] = (&self.file[min_span.0][..min_span.1]).to_owned();
+                        self.file[min_span.0 + 1] =
+                            (&self.file[min_span.0 + 1][max_span.1..]).to_owned();
+                        cursor.position = (min_span.0 + 1, 0);
+                    }
+                    CursorInput::Tab => {
+                        for i in min_span.0..=max_span.0 {
+                            for _ in 0..self.tab_length {
+                                self.file[i].insert(0, ' ');
+                            }
+                        }
+                        cursor.position.1 += self.tab_length;
+                        cursor.selection_pos.1 += self.tab_length;
+                    }
+                    CursorInput::Character(ch) => {
+                        while self.file[min_span.0].len() > min_span.1 {
+                            self.file[min_span.0].pop();
+                        }
+                        let mut next_line = vec![ch];
+                        for i in max_span.1..self.file[min_span.0 + 1].len() {
+                            next_line.push(self.file[min_span.0 + 1][i]);
+                        }
+                        self.file[min_span.0].append(&mut next_line);
+                        self.file.remove(min_span.0 + 1);
+                        cursor.position = (min_span.0, min_span.1 + 1);
+                    }
+                    CursorInput::Delete => {
+                        while self.file[min_span.0].len() > min_span.1 {
+                            self.file[min_span.0].pop();
+                        }
+                        let mut next_line = vec![];
+                        for i in max_span.1..self.file[min_span.0 + 1].len() {
+                            next_line.push(self.file[min_span.0 + 1][i]);
+                        }
+                        self.file[min_span.0].append(&mut next_line);
+                        self.file.remove(min_span.0 + 1);
+                        cursor.position = min_span;
+                    }
+                    CursorInput::Backspace => {
+                        while self.file[min_span.0].len() > min_span.1 {
+                            self.file[min_span.0].pop();
+                        }
+                        let mut next_line = vec![];
+                        for i in max_span.1..self.file[min_span.0 + 1].len() {
+                            next_line.push(self.file[min_span.0 + 1][i]);
+                        }
+                        self.file[min_span.0].append(&mut next_line);
+                        self.file.remove(min_span.0 + 1);
+                        cursor.position = min_span;
+                    }
+                    _ => {}
+                }
+                if input != CursorInput::Tab {
+                    cursor.selection_pos = cursor.position;
+                }
+            } else {
+                let (min_span, max_span) = if cursor.selection_pos.1 < cursor.position.1 {
+                    (cursor.selection_pos.1, cursor.position.1)
+                } else {
+                    (cursor.position.1, cursor.selection_pos.1)
+                };
+                match input {
+                    CursorInput::Return => {
+                        let first_line = (&self.file[cursor.position.0][..min_span]).to_owned();
+                        let second_line = (&self.file[cursor.position.0][max_span..]).to_owned();
+                        self.file[cursor.position.0] = first_line.to_owned();
+                        self.file.insert(cursor.position.0 + 1, second_line);
+                        cursor.position.0 += 1;
+                        cursor.position.1 = 0;
+                        cursor.selection_pos = cursor.position;
+                    }
+                    CursorInput::Tab => {
+                        if max_span - min_span > 0 {
+                            for _ in 0..self.tab_length {
+                                self.file[cursor.position.0].insert(cursor.position.1, ' ');
+                            }
+                            cursor.position.1 += self.tab_length;
+                            cursor.selection_pos.1 += self.tab_length;
+                        } else {
+                            let len = self.tab_length - cursor.position.1 % self.tab_length;
+                            for _ in 0..len {
+                                self.file[cursor.position.0].insert(cursor.position.1, ' ');
+                            }
+                            cursor.position.1 += len;
+                            cursor.selection_pos.1 = cursor.position.1;
+                        }
+                    }
+                    CursorInput::Character(ch) => {
+                        for _ in min_span..max_span {
+                            self.file[cursor.position.0].remove(min_span);
+                        }
+                        self.file[cursor.position.0].insert(min_span, ch);
+                        // .replace_range(min_span..max_span, &String::from(ch));
+                        cursor.position.1 = min_span + 1;
+                        cursor.selection_pos.1 = min_span + 1;
+                    }
+                    CursorInput::Delete => {
+                        if min_span == max_span {
+                            if min_span == self.file[cursor.position.0].len() {
+                                if cursor.position.0 < self.file.len() - 1 {
+                                    let mut line = self.file.remove(cursor.position.0 + 1);
+                                    self.file[cursor.position.0].append(&mut line);
+                                }
+                            } else {
+                                self.file[cursor.position.0].remove(min_span);
+                            }
+                        } else {
+                            for _ in min_span..max_span {
+                                self.file[cursor.position.0].remove(min_span);
+                            }
+                            cursor.position.1 = min_span;
+                            cursor.selection_pos.1 = min_span;
+                        }
+                    }
+                    CursorInput::Backspace => {
+                        if min_span == max_span {
+                            if min_span == 0 {
+                                if cursor.position.0 > 0 {
+                                    let mut line = self.file.remove(cursor.position.0);
+                                    cursor.position = (
+                                        cursor.position.0 - 1,
+                                        self.file[cursor.position.0 - 1].len(),
+                                    );
+                                    self.file[cursor.position.0].append(&mut line);
+                                    cursor.selection_pos = cursor.position;
+                                }
+                            } else {
+                                println!("{:?}, {:?}", min_span, max_span);
+                                self.file[cursor.position.0].remove(min_span - 1);
+                                cursor.position.1 -= 1;
+                                cursor.selection_pos.1 -= 1;
+                            }
+                        } else {
+                            for _ in min_span..max_span {
+                                self.file[cursor.position.0].remove(min_span);
+                            }
+                            cursor.position.1 = min_span;
+                            cursor.selection_pos.1 = min_span;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            cursor.normal_x = cursor.position.1;
         }
-        cursor.selection_pos = cursor.position;
     }
 }
 
@@ -490,14 +773,6 @@ impl ApplicationState {
 
         canvas.clear(Color::WHITE);
 
-        canvas.draw_rect(
-            Rect::from_ltrb(0.0, 0.0, canvas_size.width, 40.0),
-            &Paint::new(Color4f::new(0.0, 0.0, 1.0, 1.0), None),
-        );
-        // canvas.draw_rect(
-        //     Rect::from_ltrb(0.0, 0.0, canvas_size.width, canvas_size.height),
-        //     &Paint::new(Color4f::new(1.0, 1.0, 1.0, 1.0), None),
-        // );
         self.test_editor.draw(
             canvas,
             Rect::from_ltrb(
@@ -508,42 +783,13 @@ impl ApplicationState {
             ),
             &self.monospace_font,
         );
-
-        // canvas.draw_rect(
-        //     Rect::from_ltrb(0.0, 0.0, canvas_size.width, 30.0),
-        //     &Paint::new(Color4f::new(0.0, 1.0, 0.0, 1.0), None),
-        // );
-
-        // let rect_size = canvas_size / 2.0;
-        // let rect = Rect::from_point_and_size(
-        //     Point::new(
-        //         (canvas_size.width - rect_size.width) / 2.0,
-        //         (canvas_size.height - rect_size.height) / 2.0,
-        //     ),
-        //     rect_size,
-        // );
-        // let scalars = [0.0f32, 1.0f32];
-        // let mut paint = Paint::default();
-        // paint.set_shader(Shader::linear_gradient(
-        //     (
-        //         Point::new(rect.left, rect.top),
-        //         Point::new(rect.right, rect.bottom),
-        //     ),
-        //     GradientShaderColors::Colors(&[Color::RED, Color::BLUE]),
-        //     None,
-        //     TileMode::Repeat,
-        //     None,
-        //     None,
-        // ));
-        // canvas.draw_rect(rect, &paint);
     }
-
-    // fn draw_left_bar(&self, canvas: &Canvas) {}
 }
 
 #[cfg(feature = "gl-render")]
 fn main() {
     use std::{
+        collections::HashMap,
         ffi::CString,
         num::NonZeroU32,
         time::{Duration, Instant},
@@ -576,9 +822,9 @@ fn main() {
         ),
         test_editor: EditorState {
             file: vec![
-                "fn main() {".into(),
-                "    println!(\"Hello, World!\");".into(),
-                "}".into(),
+                "fn main() {".chars().collect(),
+                "    println!(\"Hello, World!\");".chars().collect(),
+                "}".chars().collect(),
             ],
             name: "name".to_string(),
             path: None,
@@ -588,6 +834,7 @@ fn main() {
                 selection_pos: (0, 0),
                 normal_x: 0,
             }],
+            tab_length: 4,
         },
     };
 
@@ -754,6 +1001,7 @@ fn main() {
     let frame_duration = Duration::from_secs_f32(expected_frame_length_seconds);
     let mut key_pressed = false;
 
+    let mut keypress_map: HashMap<PhysicalKey, bool> = HashMap::new();
     el.run(move |event, window_target| {
         let frame_start = Instant::now();
         let mut draw_frame = false;
@@ -795,7 +1043,11 @@ fn main() {
                     if modifiers.state().super_key() && logical_key == "q" {
                         window_target.exit();
                     }
-                    if !key_pressed || repeat {
+                    if !keypress_map.contains_key(&physical_key) {
+                        keypress_map.insert(physical_key, false);
+                    }
+
+                    if !keypress_map[&physical_key] || repeat {
                         if !modifiers.state().super_key() && !modifiers.state().control_key() {
                             let cursors = app.test_editor.cursors.clone();
                             for (id, cursor) in &mut cursors.iter().enumerate() {
@@ -803,32 +1055,90 @@ fn main() {
                                 // let mut start_char = cursor.1;
                                 // let mut line = cursor.2;
                                 // let mut ch = cursor.3;
-                                match physical_key {
-                                    winit::keyboard::PhysicalKey::Code(code) => match code {
-                                        KeyCode::ArrowUp => {
-                                            app.test_editor.handle_cursor_moved(id, Arrow::Up);
+                                match logical_key {
+                                    Key::Character(ref ch) => {
+                                        let v = ch.chars().collect::<Vec<char>>();
+                                        // println!("{:?}", v);
+                                        app.test_editor
+                                            .handle_cursor_input(id, CursorInput::Character(v[0]));
+                                    }
+                                    Key::Named(key) => match key {
+                                        NamedKey::ArrowUp => {
+                                            if modifiers.state().shift_key() {
+                                                app.test_editor.handle_cursor_input(
+                                                    id,
+                                                    CursorInput::ShiftArrUp,
+                                                );
+                                            } else {
+                                                app.test_editor
+                                                    .handle_cursor_input(id, CursorInput::ArrUp);
+                                            }
                                         }
-                                        KeyCode::ArrowDown => {
-                                            app.test_editor.handle_cursor_moved(id, Arrow::Down);
+                                        NamedKey::ArrowDown => {
+                                            if modifiers.state().shift_key() {
+                                                app.test_editor.handle_cursor_input(
+                                                    id,
+                                                    CursorInput::ShiftArrDown,
+                                                );
+                                            } else {
+                                                app.test_editor
+                                                    .handle_cursor_input(id, CursorInput::ArrDown);
+                                            }
                                         }
-                                        KeyCode::ArrowLeft => {
-                                            app.test_editor.handle_cursor_moved(id, Arrow::Left);
+                                        NamedKey::ArrowLeft => {
+                                            if modifiers.state().shift_key() {
+                                                app.test_editor.handle_cursor_input(
+                                                    id,
+                                                    CursorInput::ShiftArrLeft,
+                                                );
+                                            } else {
+                                                app.test_editor
+                                                    .handle_cursor_input(id, CursorInput::ArrLeft);
+                                            }
                                         }
-                                        KeyCode::ArrowRight => {
-                                            app.test_editor.handle_cursor_moved(id, Arrow::Right);
+                                        NamedKey::ArrowRight => {
+                                            if modifiers.state().shift_key() {
+                                                app.test_editor.handle_cursor_input(
+                                                    id,
+                                                    CursorInput::ShiftArrRight,
+                                                );
+                                            } else {
+                                                app.test_editor
+                                                    .handle_cursor_input(id, CursorInput::ArrRight);
+                                            }
                                         }
-                                        _ => {
-                                            // Input character
+                                        NamedKey::Backspace => {
+                                            app.test_editor
+                                                .handle_cursor_input(id, CursorInput::Backspace);
                                         }
+                                        NamedKey::Enter => {
+                                            app.test_editor
+                                                .handle_cursor_input(id, CursorInput::Return);
+                                        }
+                                        NamedKey::Tab => {
+                                            app.test_editor
+                                                .handle_cursor_input(id, CursorInput::Tab);
+                                        }
+                                        NamedKey::Delete => {
+                                            app.test_editor
+                                                .handle_cursor_input(id, CursorInput::Delete);
+                                        }
+                                        NamedKey::Space => {
+                                            app.test_editor.handle_cursor_input(
+                                                id,
+                                                CursorInput::Character(' '),
+                                            );
+                                        }
+                                        _ => {}
                                     },
-                                    // winit::keyboard::PhysicalKey::Unidentified()
                                     _ => {}
                                 }
                             }
                         }
                     }
                     if !repeat {
-                        key_pressed = !key_pressed;
+                        let b = keypress_map.remove(&physical_key).unwrap();
+                        keypress_map.insert(physical_key, !b);
                     }
                     frame = frame.saturating_sub(10);
                     env.window.request_redraw();
