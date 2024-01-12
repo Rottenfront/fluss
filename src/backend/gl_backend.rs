@@ -203,4 +203,8 @@ impl super::SkiaBackend for SkiaEnv {
     fn canvas(&mut self) -> &Canvas {
         self.surface.canvas()
     }
+
+    fn window(&mut self) -> &mut Window {
+        &mut self.window
+    }
 }

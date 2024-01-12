@@ -24,6 +24,7 @@ d3d-render = ["skia-safe/d3d"]
 skia-safe = { version = "0.69.0", features = ["textlayout", "svg"] }
 winit = { version = "0.29.3" }
 kurbo = "0.10"
+binding = { path = "binding" }
 
 # gl-window
 # [target.'cfg(any(target_os = "linux", target_os = "windows"))'.dependencies]

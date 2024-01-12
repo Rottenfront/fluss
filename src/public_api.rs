@@ -1,7 +1,10 @@
 use std::path::PathBuf;
 
 pub use kurbo::*;
-use winit::event::{KeyEvent, MouseButton};
+use winit::{
+    event::{KeyEvent, MouseButton},
+    keyboard::Key,
+};
 
 pub enum WidgetEvent {
     CursorMove((f32, f32)),
@@ -11,7 +14,13 @@ pub enum WidgetEvent {
     Scroll {
         delta: (f32, f32),
     },
-    KeyboardInput(KeyEvent),
+    KeyboardInput {
+        key: Key,
+        shift: bool,
+        logo: bool,
+        ctrl: bool,
+        alt: bool,
+    },
     Resized((f32, f32)),
     Disabled,
     Enabled,
@@ -33,6 +42,14 @@ pub enum WidgetEvent {
     /// There will be a single `HoveredFileCancelled` event triggered even if multiple files were
     /// hovered.
     HoveredFileCancelled,
+}
+
+pub struct KeyboardInput {
+    key: Key,
+    shift: bool,
+    logo: bool,
+    ctrl: bool,
+    alt: bool,
 }
 
 pub type FontId = usize;
@@ -72,27 +89,6 @@ impl BezierPathTrait for Vec<BezierCurve> {
     }
 }
 
-// pub enum Primitive {
-//     Rect {
-//         top_left: Point,
-//         bottom_right: Point,
-//     },
-//     RoundedRect {
-//         top_left: Point,
-//         bottom_right: Point,
-//         radius: f32,
-//     },
-//     Text {
-//         text: String,
-//         top_left: Point,
-//         font: FontId,
-//     },
-//     Path {
-//         start: Point,
-//         path: Vec<BezierCurve>,
-//     },
-// }
-
 pub struct Color {
     r: f32,
     g: f32,
@@ -106,20 +102,66 @@ pub enum Filler {
     LinearGradient((Point, Color), (Point, Color)),
 }
 
-pub trait Context {
+pub trait WidgetContext {
     fn create_image(&mut self, img: Image) -> ImageId;
-    fn release_image(&mut self, id: ImageId) -> Result<(), String>;
+    fn delete_image(&mut self, id: ImageId) -> Option<Image>;
+    fn require_focus(&mut self, focus: bool);
+    fn transmit_focus(&mut self, next: bool);
 }
 
-pub trait Element {
+pub enum Primitive {
+    Rect(Rect),
+    RoundedRect(RoundedRect),
+}
+
+pub trait Widget {
     /// `self` field is not mutable 'cause it's better to use bindings for drawing context
     ///
     /// Binding doesn't require mutability to modify content
-    fn draw(&self, max_bound: Point) -> Vec<(Box<impl Shape>, Filler)>;
+    fn draw(&self, max_bound: Point) -> (Vec<(Box<impl Shape>, Filler)>, Rect);
+
+    /// Handles only relative to widget coords
+    ///
     /// Returns true if event is handled, false if event is passed
-    fn handle_event<Ctx: Context>(&mut self, event: WidgetEvent, ctx: &mut Ctx) -> bool;
+    fn handle_cursor_movement(&mut self, position: Point, ctx: &mut Box<dyn WidgetContext>)
+        -> bool;
+    /// Returns true if event is handled, false if event is passed
+    fn handle_cursor_left(&mut self, ctx: &mut Box<dyn WidgetContext>) -> bool;
+    /// Returns true if event is handled, false if event is passed
+    fn handle_mouse_button_pressed(
+        &mut self,
+        button: &MouseButton,
+        ctx: &mut Box<dyn WidgetContext>,
+    ) -> bool;
+    /// Returns true if event is handled, false if event is passed
+    fn handle_mouse_button_released(
+        &mut self,
+        button: &MouseButton,
+        ctx: &mut Box<dyn WidgetContext>,
+    ) -> bool;
+    /// Returns true if event is handled, false if event is passed
+    fn handle_scroll(&mut self, delta: Vec2, ctx: &mut Box<dyn WidgetContext>) -> bool;
+    /// Returns true if event is handled, false if event is passed
+    fn handle_resized(&mut self, rect: Size, ctx: &mut Box<dyn WidgetContext>) -> bool;
+    /// Returns true if event is handled, false if event is passed
+    fn handle_disabled(&mut self, ctx: &mut Box<dyn WidgetContext>) -> bool;
+    /// Returns true if event is handled, false if event is passed
+    fn handle_enabled(&mut self, ctx: &mut Box<dyn WidgetContext>) -> bool;
+    /// Returns true if event is handled, false if event is passed
+    fn handle_keyboard_input(
+        &mut self,
+        event: KeyboardInput,
+        ctx: &mut Box<dyn WidgetContext>,
+    ) -> bool;
+    /// Returns true if event is handled, false if event is passed
+    fn handle_dropped_file(&mut self, path: PathBuf, ctx: &mut Box<dyn WidgetContext>) -> bool;
+    /// Returns true if event is handled, false if event is passed
+    fn handle_file_hover(&mut self, path: PathBuf, ctx: &mut Box<dyn WidgetContext>) -> bool;
+    /// Returns true if event is handled, false if event is passed
+    fn handle_file_hover_canceled(&mut self, ctx: &mut Box<dyn WidgetContext>) -> bool;
+
     /// Must be called by context on widget creation
-    fn prepare<Ctx: Context>(&mut self, ctx: &mut Ctx);
+    fn prepare(&mut self, ctx: &mut Box<dyn WidgetContext>);
     /// Must be called by context on widget deletion, can be used for releasing used data
-    fn delete<Ctx: Context>(&mut self, ctx: &mut Ctx);
+    fn delete(&mut self, ctx: &mut Box<dyn WidgetContext>);
 }
