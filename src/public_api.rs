@@ -1,10 +1,7 @@
 use std::path::PathBuf;
 
 pub use kurbo::*;
-use winit::{
-    event::{KeyEvent, MouseButton},
-    keyboard::Key,
-};
+use winit::{event::MouseButton, keyboard::Key};
 
 pub enum WidgetEvent {
     CursorMove((f32, f32)),
