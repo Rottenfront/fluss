@@ -1,77 +1,84 @@
 # Fluss
+
 Pronounced as [flʊs]
 
-Fluss это экспериментальный редактор, пытающийся реализовать модульную и
-расширяемую систему среды разработки. Главный упор делается на скорость и
-легковесность, планируется основной backend на Skia, и возможно добавление
-piet backend'а.
+Fluss is experimental editor that tries to implement modular and extensible system development environment. Mainly backend is based on Skia, and it is planned to add piet backend.
 
-## TODO list:
-Редактор:
-[ ] AST файла
-    - реализация на TreeSitter, возможно добавление Lady Deirdre
-[ ] Навигация по AST
-[ ] Подсветка кода
-    - использует AST, идет в отдельном потоке
-[ ] LSP
-    - будет использовать lsp-types
-    - идет в отдельном потоке
-Компоненты:
-[ ] Система вкладок
-[ ] Разделение рабочей области на меняющие размер редакторы
-[ ] Абстрактный тип вкладок (чтобы реализовать markdown и html preview)
-[ ] Левый, нижний, правый доки для инструментов
-[ ] Панели инструментов с кнопками
-[ ] Top-level окна (hovering, completion, toltips)
-[ ] Hard-coded система плагинов
-    - при любом обновлении плагинов редактор нужно рекомпилировать
-    - самая простая система, нет никаких ограничений, связанных с API
-[ ] Runtime система плагинов
-    - либо через deno, либо через wasm, либо через особый скриптовый язык
-    - для каждого варианта нужно создать библиотеку декларативного GUI
+## TODO list
 
-[ ] Библиотека декларативного GUI
-    - планируется встраиваемость в редактор и в обычное winit окно
-    - как backend будет использоваться набор абстракций на базе winit и kurbo
-    - kurbo будет использоваться как обработчик геометрических примитивов
-    - winit будет использоваться как основа системы ивентов окна/поля компонента
-      GUI. Для нахождения компонента, которому будет передаваться ивент, будет
-      использоваться система фокусов (для клавиатуры) и каскадный поиск элемента
-      под курсором (для мыши)
-    - планируется идентичность cushy/rui/gpui2, набор компонентов будет
-      основываться на самых используемых компонентах SwiftUI
+### Editor
 
-Модули:
-[ ] Редактор кода
-    - реализация основывается на моноширинных шрифтах
-    - упор на идентичность редактору JetBrains IntelliJ
-[ ] Терминал
-    - реализация будет основана на vte
-    - планируется работа только с моноширинными шрифтами
-[ ] Проводник (файловая система)
-    - реализация будет работать с любыми шрифтами
-    - внешний вид должен быть полностью настраиваемым
-    - планируется:
-        1. создание, переименование файлов и папок
-        2. drag'n'drop файлов и папок, главным примером выбран VSCode
-        3. Выполнение проверки и форматирования кода в папках и файлах
+- [ ] Multicursor editing
+- [ ] Scrollbar
+- [ ] Copy, paste, Input Method Editor
+- [ ] Source file AST
+  - mainly based on TreeSitter, it's possible to use Lady Deirdre
+- [ ] AST-based navigation
+- [ ] Source code highlighting
+  - Multithreaded, based on AST
+- [ ] LSP
+  - Multithreaded
+  - Uses separated widgets to display information
 
-Приоритет языковой поддержки отдается Rust, C и C++.
-На втором месте стоят TypeScript, Python, C#, Java и Kotlin.
-После реализации главных фич редактора представляется возможным поддержка любого
-языка, имеющего сервер, поддерживающий LSP, и реализации TreeSitter парсера.
+### Components
 
+- [ ] Tabbing system
+- [ ] Editor space splitter (vertical and horizontal)
+- [ ] Abstract tab type (to implement markdown & html preview)
+- [ ] Left, bottom, right docks for tools
+- [ ] Toolbar with buttons and bottom bar with text widgets, tooltips are required
+- [ ] Top-level windows (hovering, completion, toltips)
+- [ ] Hard-coded plug-in system
+  - On every plug-in update it's required to recompile editor
+  - The most easy and simple system
+- [ ] Runtime plug-in system
+  - Deno, wasm or special scripting language required
+  - Declarative GUI framework required
 
-Не смотрите на этот проект как на продукт пока не будут выполнены все эти пункты.
+- [ ] Declarative GUI framework
+  - Must be standalone project
+  - Must be pluggable into editor pane
+  - Backend is based on kurbo types
+  - kurbo will be used as geometry types provider
+  - winit is used as an example of event system for GUI widgets. To find the
+    event destination, focus system (for keyboard) and cascade search
+    (for mouse) will be used
+  - Should be identical to rui/cushy/gpui2. Main widgets list will be based on
+    SwiftUI widget's purpose and appearance list
 
-Также в обозримом будущем планируется поддержка ChatGPT/Copilot или Codeium.
-Если это возможно, будут реализованы CRDTs для многопользовательского
-редактирования исходного кода.
+### Modules
 
-## Зачем?
-Я делаю этот проект как свою цель в программировании на Rust.
-Я хочу создать редактор, в котором мне будет приятно писать код.
-Это пет-проект, затеянный обычным лицеистом физ-мат профиля.
-Не ждите от него чего-то очень большого.
-Возможно, через пару месяцев этот репозиторий перестанет существовать.
+- [ ] Source code editor
+  - Focus on JetBrains IntelliJ editor's identity
+  - Uses only monospace fonts
+- [ ] Terminal
+  - Based on VTE protocol
+  - Uses only monospace fonts
+- [ ] File explorer
+  - Uses any font
+  - Appearance must be completely customizable
+  - Planned:
+    1. Creation and renaming files and folders
+    2. drag'n'drop for files and folders, main example VSCode
+    3. Code check and formatting in files and folders
 
+Language support priorities are Rust, C и C++.
+On the second place are TypeScript, Python, C#, Java и Kotlin.
+After implementing the main features of the editor, it is possible to support
+any language that has a server that supports LSP, and an implementation of the
+TreeSitter parser.
+
+Don't look at this project as a product until all these points are completed.
+
+There are also plans to support ChatGPT/Copilot or Codeium in the foreseeable
+future.
+If possible, CRDTs will be implemented for multi-user source code editing.
+
+## Why?
+
+I am doing this project as my goal in Rust programming.
+I want to create an editor in which I will enjoy writing code.
+This is a pet project started by an ordinary lyceum student with a
+specialization in physics and mathematics.
+Don't expect anything very big from him.
+Perhaps in a couple of months this repository will cease to exist.
