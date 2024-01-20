@@ -195,13 +195,10 @@ impl super::SkiaBackend for SkiaEnv {
         self.window.request_redraw();
     }
 
-    fn draw(&mut self) {
+    fn draw<F: FnOnce(&Canvas)>(&mut self, draw_func: F) {
+        draw_func(self.surface.canvas());
         self.gr_context.flush_and_submit();
         self.gl_surface.swap_buffers(&self.gl_context).unwrap();
-    }
-
-    fn canvas(&mut self) -> &Canvas {
-        self.surface.canvas()
     }
 
     fn window(&mut self) -> &mut Window {

@@ -5,10 +5,10 @@ edition = "2021"
 
 [features]
 default = [
-    # "x11", "wayland",
-    "metal-render"
+    "x11", # "wayland",
+    # "metal-render"
     # "d3d-render"
-    # "gl-render"
+    "gl-render",
     # "vulkan-render"
 ]
 
@@ -24,23 +24,23 @@ d3d-render = ["skia-safe/d3d"]
 skia-safe = { version = "0.69.0", features = ["textlayout", "svg"] }
 winit = { version = "0.29.3" }
 kurbo = "0.10"
-binding = { path = "binding" }
+binding = { version = "2", path = "binding" }
 
 # gl-window
 # [target.'cfg(any(target_os = "linux", target_os = "windows"))'.dependencies]
-# glutin = "0.31.1"
-# glutin-winit = { version = "0.4" }
-# raw-window-handle = { version = "0.5.0" }
-# gl = "0.14.0"
+glutin = "0.31.1"
+glutin-winit = { version = "0.4" }
+raw-window-handle = { version = "0.5.0" }
+gl = "0.14.0"
 
 # metal-window
 # [target.'cfg(target_os = "macos")'.dependencies]
-metal = "0.27.0"
-raw-window-handle = { version = "0.6.0" }
-objc = "0.2.7"
-cocoa = "0.25.0"
-core-graphics-types = "0.1.1"
-foreign-types-shared = "0.3.1"
+# metal = "0.27.0"
+# raw-window-handle = { version = "0.6.0" }
+# objc = "0.2.7"
+# cocoa = "0.25.0"
+# core-graphics-types = "0.1.1"
+# foreign-types-shared = "0.3.1"
 
 # d3d-window
 # [target.'cfg(target_os = "windows")'.dependencies]

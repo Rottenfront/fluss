@@ -118,7 +118,7 @@ impl ApplicationState {
 
         canvas.clear(Color::WHITE);
 
-        let mut drawer = Drawer {
+        let drawer = Drawer {
             canvas,
             fonts: {
                 let mut fonts = HashMap::new();
