@@ -1,8 +1,8 @@
-use binding::{Binding, Bound, MutableBound};
+pub use flo_binding::{Binding, Bound, MutableBound};
 
 use std::{cmp::min, path::PathBuf, time::Instant};
 
-use skia_safe::{Canvas, ClipOp, Color4f, Font, Paint, Point, RRect, Rect, TextBlob};
+use skia_safe::{Canvas, ClipOp, Color4f, Paint, Point, RRect, Rect, TextBlob};
 use winit::{
     event::{Ime, Modifiers},
     keyboard::{Key, NamedKey},

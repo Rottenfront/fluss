@@ -5,11 +5,11 @@ edition = "2021"
 
 [features]
 default = [
-    "x11", # "wayland",
-    # "metal-render"
-    # "d3d-render"
-    "gl-render",
-    # "vulkan-render"
+  "x11", # "wayland",
+  # "metal-render"
+  # "d3d-render"
+  "gl-render",
+  # "vulkan-render"
 ]
 
 gl-render = ["skia-safe/gl", "winit/rwh_05"]
@@ -24,7 +24,7 @@ d3d-render = ["skia-safe/d3d"]
 skia-safe = { version = "0.69.0", features = ["textlayout", "svg"] }
 winit = { version = "0.29.3" }
 kurbo = "0.10"
-binding = { version = "2", path = "binding" }
+flo_binding = "2"
 
 # gl-window
 # [target.'cfg(any(target_os = "linux", target_os = "windows"))'.dependencies]

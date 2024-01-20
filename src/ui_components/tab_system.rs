@@ -2,7 +2,7 @@ use crate::canvas::Drawer;
 
 use super::editor::EditorState;
 
-use skia_safe::{Canvas, Color4f, Font, Paint, Rect};
+use skia_safe::{Color4f, Paint, Rect};
 pub struct TabSystem {
     pub scroll: f32,
     // change EditorState to trait TabState

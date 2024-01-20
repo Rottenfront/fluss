@@ -4,8 +4,8 @@ pub mod canvas;
 mod ui_components;
 
 use backend::{SkiaBackend, SkiaEnv};
-use binding::bind;
 use canvas::{Drawer, FontId};
+use flo_binding::bind;
 use skia_safe::{
     font_style::{Slant, Weight, Width},
     Canvas, Color, Font, FontMgr, FontStyle, Rect, Size,
