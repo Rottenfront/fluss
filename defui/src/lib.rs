@@ -4,6 +4,8 @@
 #[macro_use]
 extern crate lazy_static;
 
+pub use trist::*;
+
 mod view;
 pub use view::*;
 

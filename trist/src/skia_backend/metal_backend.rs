@@ -1,18 +1,17 @@
-use cocoa::{
-    appkit::NSView,
-    base::id as cocoa_id,
-};
+use cocoa::{appkit::NSView, base::id as cocoa_id};
 use core_graphics_types::geometry::CGSize;
 use foreign_types_shared::{ForeignType, ForeignTypeRef};
-use metal::{Device, MTLPixelFormat, MetalLayer, CommandQueue};
-use objc::
-    runtime::YES
-;
+use metal::{CommandQueue, Device, MTLPixelFormat, MetalLayer};
+use objc::runtime::YES;
 use raw_window_handle::HasWindowHandle;
-use skia_safe::{gpu::{self, mtl, BackendRenderTarget, DirectContext, SurfaceOrigin}, Canvas, scalar, Size, ColorType};
+use skia_safe::{
+    gpu::{self, mtl, BackendRenderTarget, DirectContext, SurfaceOrigin},
+    scalar, Canvas, ColorType, Size,
+};
 use winit::{
-    window::{WindowBuilder, Window},
-    event_loop::EventLoop, dpi::PhysicalSize
+    dpi::PhysicalSize,
+    event_loop::EventLoop,
+    window::{Window, WindowBuilder},
 };
 
 pub struct SkiaEnv {
@@ -78,7 +77,8 @@ impl super::SkiaBackend for SkiaEnv {
     }
 
     fn on_resize(&mut self, size: PhysicalSize<u32>) {
-        self.metal_layer.set_drawable_size(CGSize::new(size.width as f64, size.height as f64));
+        self.metal_layer
+            .set_drawable_size(CGSize::new(size.width as f64, size.height as f64));
     }
 
     fn request_redraw(&mut self) {

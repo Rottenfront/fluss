@@ -6,16 +6,24 @@ use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
 use std::ops;
 
-pub type LocalSpace = vger::defs::LocalSpace;
-pub type WorldSpace = vger::defs::WorldSpace;
-pub type LocalRect = Rect<f32, LocalSpace>;
-pub type LocalOffset = Vector2D<f32, LocalSpace>;
-pub type LocalSize = Size2D<f32, LocalSpace>;
-pub type LocalPoint = Point2D<f32, LocalSpace>;
-pub type WorldRect = Rect<f32, WorldSpace>;
+pub struct ScreenSpace;
+pub type ScreenSize = Size2D<f32, ScreenSpace>;
+
+pub struct WorldSpace;
 pub type WorldPoint = Point2D<f32, WorldSpace>;
+
+pub struct LocalSpace {}
+pub type LocalPoint = Point2D<f32, LocalSpace>;
+pub type LocalVector = Vector2D<f32, LocalSpace>;
+pub type LocalSize = Size2D<f32, LocalSpace>;
+
 pub type LocalToWorld = Transform2D<f32, LocalSpace, WorldSpace>;
 pub type WorldToLocal = Transform2D<f32, WorldSpace, LocalSpace>;
+pub type LocalTransform = Transform2D<f32, LocalSpace, LocalSpace>;
+
+pub type LocalRect = Rect<f32, LocalSpace>;
+pub type LocalOffset = Vector2D<f32, LocalSpace>;
+pub type WorldRect = Rect<f32, WorldSpace>;
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct CommandInfo {
@@ -39,13 +47,6 @@ pub(crate) struct StateHolder {
 pub(crate) type StateMap = HashMap<ViewId, StateHolder>;
 
 pub(crate) type EnvMap = HashMap<TypeId, Box<dyn Any>>;
-
-pub struct RenderInfo<'a> {
-    pub device: &'a wgpu::Device,
-    pub surface: &'a wgpu::Surface,
-    pub config: &'a wgpu::SurfaceConfiguration,
-    pub queue: &'a wgpu::Queue,
-}
 
 /// The Context stores all UI state. A user of the library
 /// shouldn't have to interact with it directly.
@@ -162,7 +163,7 @@ impl Context {
     pub fn update(
         &mut self,
         view: &impl View,
-        vger: &mut Vger,
+        vger: &mut SkiaDrawerState,
         access_nodes: &mut Vec<(accesskit::NodeId, accesskit::Node)>,
         window_size: Size2D<f32, WorldSpace>,
     ) -> bool {
@@ -239,7 +240,7 @@ impl Context {
         &mut self,
         render_info: RenderInfo,
         view: &impl View,
-        vger: &mut Vger,
+        vger: &mut SkiaDrawer,
         window_size: Size2D<f32, WorldSpace>,
         scale: f32,
     ) {
@@ -255,8 +256,6 @@ impl Context {
                     .expect("Failed to acquire next surface texture!")
             }
         };
-
-        vger.begin(window_size.width, window_size.height, scale);
 
         let mut path = vec![0];
         // Disable dirtying the state during layout and rendering
@@ -276,7 +275,7 @@ impl Context {
         // Center the root view in the window.
         self.root_offset = ((local_window_size - sz) / 2.0).into();
 
-        vger.translate(self.root_offset);
+        vger.translate((self.root_offset.x, self.root_offset.y).into());
         view.draw(&mut path, &mut DrawArgs { cx: self, vger });
         self.enable_dirty = true;
 
@@ -295,26 +294,6 @@ impl Context {
         }
 
         self.dirty_region.clear();
-
-        let texture_view = frame
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
-
-        let desc = wgpu::RenderPassDescriptor {
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: &texture_view,
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-                    store: wgpu::StoreOp::Store,
-                },
-            })],
-            ..<_>::default()
-        };
-
-        vger.encode(&desc);
-
-        frame.present();
     }
 
     /// Process a UI event.
@@ -377,7 +356,7 @@ impl Context {
                     path.clone(),
                     LayoutBox {
                         rect: LocalRect::default(),
-                        offset: offset,
+                        offset,
                     },
                 );
             }

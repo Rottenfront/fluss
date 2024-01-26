@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["skia-gl-linux"]
+default = ["skia-gl-mac"]
 
 skia-gl-linux = ["skia-gl", "skia-x11", "skia-wayland"]
 # skia-vk-linux = [""]
@@ -29,7 +29,6 @@ skia-d3d = ["skia", "skia-safe/d3d", "anyhow", "windows", "rwh06"]
 [dependencies]
 skia-safe = { version = "0.70.0", features = [
     "textlayout",
-    "svg",
 ], optional = true }
 winit = { version = "0.29.3", optional = true }
 kurbo = "0.10"

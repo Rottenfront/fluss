@@ -7,12 +7,11 @@ pub use gl_backend::SkiaEnv;
 use kurbo::Shape;
 use skia_safe::{
     font_style::{Slant as SSlant, Weight as SWeight, Width as SWidth},
-    Font as SFont, FontMgr as SFontMgr, FontStyle as SFontStyle,
-    Paint as SPaint, Path as SPath,
+    Font as SFont, FontMgr as SFontMgr, FontStyle as SFontStyle, Paint as SPaint, Path as SPath,
 };
 use std::collections::HashMap;
 
-use crate::{DrawerError, DrawerState, Font, FontId, Paint, PaintId, Weight, Width};
+use crate::{Drawer, DrawerError, DrawerState, Font, FontId, Paint, PaintId, Weight, Width};
 
 pub struct SkiaDrawerState {
     fast_paints: HashMap<usize, SPaint>,
@@ -117,7 +116,11 @@ impl DrawerState for SkiaDrawerState {
             SFontMgr::new()
                 .match_family_style(
                     &font.name,
-                    SFontStyle::new(get_skia_font_weight(font.weight), get_skia_font_width(font.width), SSlant::Upright),
+                    SFontStyle::new(
+                        get_skia_font_weight(font.weight),
+                        get_skia_font_width(font.width),
+                        SSlant::Upright,
+                    ),
                 )
                 .unwrap(),
             font.size,
@@ -179,15 +182,25 @@ impl<'a> SkiaDrawer<'a> {
 }
 
 impl<'a> Drawer<SkiaDrawerState> for SkiaDrawer<'a> {
-    fn clip_shape(&mut self, shape: &impl Shape) -> Result<(), DrawerError> {
+    fn save(&mut self) -> Result<(), DrawerError> {
         self.canvas.save();
-        self.canvas
-            .clip_path(&get_skia_path(shape), skia_safe::ClipOp::Intersect, true);
         Ok(())
     }
 
-    fn unclip(&mut self) {
+    fn restore(&mut self) -> Result<(), DrawerError> {
         self.canvas.restore();
+        Ok(())
+    }
+
+    fn translate(&mut self, point: kurbo::Point) -> Result<(), DrawerError> {
+        self.canvas.translate((point.x as i32, point.y as i32));
+        Ok(())
+    }
+
+    fn clip_shape(&mut self, shape: &impl Shape) -> Result<(), DrawerError> {
+        self.canvas
+            .clip_path(&get_skia_path(shape), skia_safe::ClipOp::Intersect, true);
+        Ok(())
     }
 
     fn draw_shape(&mut self, shape: &impl Shape, paint: PaintId) -> Result<(), DrawerError> {

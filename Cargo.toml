@@ -1,4 +1,4 @@
-workspace = { members = ["trist", ".", "defui"] }
+workspace = { members = ["trist", ".", "defui", "drachen"] }
 [package]
 name = "fluss"
 version = "0.1.0"
@@ -6,7 +6,7 @@ edition = "2021"
 
 [features]
 default = [
-    "x11", # "wayland",
+    # "x11", "wayland",
     # "metal-render"
     # "d3d-render"
     "gl-render",
