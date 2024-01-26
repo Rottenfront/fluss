@@ -844,6 +844,14 @@ impl EditorState {
         self.cursor_instant.set(Instant::now())
     }
 
+    pub fn update(&mut self) {
+        if self.lmb_pressed.get() {
+            for cur in 0..self.cursors.len() {
+                self.caret_scroll(cur);
+            }
+        }
+    }
+
     fn caret_scroll(&mut self, cursor: usize) {
         let pos = self.cursors[cursor].position;
         let line_height = self.line_height.get();

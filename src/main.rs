@@ -127,8 +127,8 @@ impl ApplicationState {
                     Font::new(
                         FontMgr::new()
                             .match_family_style(
-                                "Cascadia Code PL",
-                                FontStyle::new(Weight::BOLD, Width::NORMAL, Slant::Upright),
+                                "CaskaydiaCove Nerd Font",
+                                FontStyle::new(Weight::NORMAL, Width::NORMAL, Slant::Upright),
                             )
                             .unwrap(),
                         13.0,
