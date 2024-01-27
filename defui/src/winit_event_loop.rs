@@ -1,12 +1,11 @@
 use crate::*;
-use futures::executor::block_on;
 use std::{
     collections::{HashMap, VecDeque},
-    sync::{Arc, Mutex},
+    sync::Mutex,
+    time::{Duration, Instant},
 };
-use trist::*;
-
 use winit::{
+    dpi::LogicalSize,
     event::{
         ElementState, Event as WEvent, MouseButton as WMouseButton, Touch, TouchPhase, WindowEvent,
     },
@@ -62,12 +61,20 @@ fn process_event(cx: &mut Context, view: &impl View, event: &Event, window: &Win
 
 /// Call this function to run your UI.
 pub fn rui(view: impl View) {
-    let event_loop = EventLoop::new();
+    let event_loop = EventLoop::new().expect("Failed to create event loop");
 
+    let mut width = 800.0;
+    let mut height = 800.0;
+    let mut scale = 1.0;
     let mut window_title = String::from("rui");
-    let builder = WindowBuilder::new().with_title(&window_title);
 
-    let env = SkiaEnv::new(builder, &event_loop);
+    let winit_window_builder = WindowBuilder::new()
+        .with_title("Fluss")
+        .with_inner_size(LogicalSize::new(width, height))
+        .with_transparent(true)
+        .with_blur(true);
+
+    let mut env = SkiaEnv::new(winit_window_builder, &event_loop);
 
     #[cfg(not(target_arch = "wasm32"))]
     {
@@ -75,7 +82,7 @@ pub fn rui(view: impl View) {
     }
 
     let mut cx = Context::new();
-    let mut mouse_position = LocalPoint::zero();
+    let mut mouse_position = LocalPoint::new(0.0,0.0);
 
     let mut commands: Vec<CommandInfo> = Vec::new();
     let mut command_map = HashMap::new();
@@ -88,14 +95,6 @@ pub fn rui(view: impl View) {
 
     let mut access_nodes = vec![];
 
-    let el = EventLoop::new().expect("Failed to create event loop");
-    let winit_window_builder = WindowBuilder::new()
-        .with_title("Fluss")
-        .with_inner_size(LogicalSize::new(800, 800))
-        .with_transparent(true)
-        .with_blur(true);
-
-    let mut env = SkiaEnv::new(winit_window_builder, &el);
 
     // let font_mgr = FontMgr::new();
     // let svg = r##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" height = "100" width = "100">
@@ -104,9 +103,9 @@ pub fn rui(view: impl View) {
     //     <text x="50" y="68" font-size="48" fill="#FFF" text-anchor="middle"><![CDATA[410]]></text>
     //     </svg>"##;
     // let dom = SvgDom::from_str(svg, font_mgr).unwrap();
-    let mut previous_frame_start: Instant = Instant::now();
-    let mut modifiers: Modifiers = Modifiers::default();
-    let mut frame_duration: Duration = Duration::from_secs_f32(EXPECTED_FRAME_DURATION);
+    let mut previous_frame_start = Instant::now();
+    let mut modifiers = winit::event::Modifiers::default();
+    let mut frame_duration = Duration::from_secs_f32(1.0 / 60.0);
 
     let state = env.get_drawer_state();
     let font = state
@@ -118,7 +117,7 @@ pub fn rui(view: impl View) {
         })
         .unwrap();
 
-    el.run(move |event, window_target| {
+    event_loop.run(move |event, window_target| {
         let frame_start = Instant::now();
         let mut draw_frame = false;
         match event {
@@ -129,10 +128,10 @@ pub fn rui(view: impl View) {
                     return;
                 }
                 WindowEvent::Resized(size) => {
-                    config.width = size.width.max(1);
-                    config.height = size.height.max(1);
+                    width = size.width.max(1) as _;
+                    height = size.height.max(1) as _;
                     env.on_resize(size);
-                    window.request_redraw();
+                    env.request_redraw();
                 }
 
                 WindowEvent::MouseInput { state, button, .. } => {
@@ -148,7 +147,7 @@ pub fn rui(view: impl View) {
                                 id: 0,
                                 position: mouse_position,
                             };
-                            process_event(&mut cx, &view, &event, &window)
+                            process_event(&mut cx, &view, &event, env.window())
                         }
                         ElementState::Released => {
                             cx.mouse_button = None;
@@ -156,22 +155,17 @@ pub fn rui(view: impl View) {
                                 id: 0,
                                 position: mouse_position,
                             };
-                            process_event(&mut cx, &view, &event, &window)
+                            process_event(&mut cx, &view, &event, env.window())
                         }
                     };
                 }
                 WindowEvent::Touch(Touch {
                     phase, location, ..
                 }) => {
-                    // Do not handle events from other windows.
-                    if window_id != window.id() {
-                        return;
-                    }
-
-                    let scale = window.scale_factor() as f32;
+                    scale = env.window().scale_factor();
                     let position = [
-                        location.x as f32 / scale,
-                        (config.height as f32 - location.y as f32) / scale,
+                        location.x / scale as f64,
+                        (height - location.y) / scale as f64,
                     ]
                     .into();
 
@@ -191,15 +185,15 @@ pub fn rui(view: impl View) {
                     };
 
                     if let Some(event) = event {
-                        process_event(&mut cx, &view, &event, &window);
+                        process_event(&mut cx, &view, &event, env.window());
                     }
                 }
                 WindowEvent::CursorMoved { position, .. } => {
-                    let scale = window.scale_factor() as f32;
-                    mouse_position = [
-                        position.x as f32 / scale,
-                        (config.height as f32 - position.y as f32) / scale,
-                    ]
+                    scale = env.window().scale_factor();
+                    mouse_position = (
+                        position.x / scale,
+                        (height - position.y) / scale,
+                )
                     .into();
                     // let event = Event::TouchMove {
                     //     id: 0,
@@ -215,27 +209,20 @@ pub fn rui(view: impl View) {
 
                 WindowEvent::ModifiersChanged(mods) => {
                     cx.key_mods = KeyboardModifiers {
-                        shift: mods.shift(),
-                        control: mods.ctrl(),
-                        alt: mods.alt(),
-                        command: mods.logo(),
+                        shift: mods.state().shift_key(),
+                        control: mods.state().control_key(),
+                        alt: mods.state().alt_key(),
+                        command: mods.state().super_key(),
                     };
                 }
+                WindowEvent::RedrawRequested => {
+                    // Redraw the application.
+                    //
+                    // It's preferable for applications that do not render continuously to render in
+                    // this event rather than in MainEventsCleared, since rendering in here allows
+                    // the program to gracefully handle redraws requested by the OS.
 
-                WEvent::DeviceEvent {
-                    event: winit::event::DeviceEvent::MouseMotion { delta },
-                    ..
-                } => {
-                    // Flip y coordinate.
-                    let d: LocalOffset = [delta.0 as f32, -delta.1 as f32].into();
-
-                    let event = Event::TouchMove {
-                        id: 0,
-                        position: mouse_position,
-                        delta: d,
-                    };
-
-                    process_event(&mut cx, &view, &event, &window);
+                    draw_frame = true;
                 }
                 _ => {}
             },
@@ -250,43 +237,21 @@ pub fn rui(view: impl View) {
                     }
                 }
             }
-            WEvent::MainEventsCleared => {
-                // Application update code.
 
-                // Queue a RedrawRequested event.
-                //
-                // You only need to call this if you've determined that you need to redraw, in
-                // applications which do not always need to. Applications that redraw continuously
-                // can just render here instead.
+            WEvent::DeviceEvent {
+                event: winit::event::DeviceEvent::MouseMotion { delta },
+                ..
+            } => {
+                // Flip y coordinate.
+                let d: LocalOffset = (delta.0, -delta.1).into();
 
-                let window_size = window.inner_size();
-                let scale = window.scale_factor() as f32;
-                // println!("window_size: {:?}", window_size);
-                let width = window_size.width as f32 / scale;
-                let height = window_size.height as f32 / scale;
+                let event = Event::TouchMove {
+                    id: 0,
+                    position: mouse_position,
+                    delta: d,
+                };
 
-                if cx.update(&view, &mut vger, &mut access_nodes, [width, height].into()) {
-                    window.request_redraw();
-                }
-
-                if cx.window_title != window_title {
-                    window_title = cx.window_title.clone();
-                    window.set_title(&cx.window_title);
-                }
-            }
-            WEvent::RedrawRequested(_) => {
-                // Redraw the application.
-                //
-                // It's preferable for applications that do not render continuously to render in
-                // this event rather than in MainEventsCleared, since rendering in here allows
-                // the program to gracefully handle redraws requested by the OS.
-
-                let window_size = window.inner_size();
-                let scale = window.scale_factor() as f32;
-                // println!("window_size: {:?}", window_size);
-                let width = window_size.width as f32 / scale;
-                let height = window_size.height as f32 / scale;
-                draw_frame = true;
+                process_event(&mut cx, &view, &event, env.window());
             }
             _ => (),
         }
@@ -294,24 +259,28 @@ pub fn rui(view: impl View) {
             draw_frame = true;
             previous_frame_start = frame_start;
         }
+        let window_size = env.window().inner_size();
+        scale = env.window().scale_factor();
+        // println!("window_size: {:?}", window_size);
+        width = window_size.width as f64 / scale;
+        height = window_size.height as f64 / scale;
+        let draw_state = env.get_drawer_state();
+
+        if cx.update(&view, draw_state, &mut access_nodes, (width, height).into()) {
+            env.request_redraw();
+        }
+
+        if cx.window_title != window_title {
+            window_title = cx.window_title.clone();
+            env.window().set_title(&cx.window_title);
+        }
 
         if draw_frame {
             env.prepare_draw();
             let canvas = env.get_drawer();
             let mut drawer = SkiaDrawer::new(canvas.0, canvas.1);
 
-            cx.render(
-                RenderInfo {
-                    device: &device,
-                    surface: &surface,
-                    config: &config,
-                    queue: &queue,
-                },
-                &view,
-                &mut drawer,
-                [width, height].into(),
-                scale,
-            );
+            cx.render(&view, &mut drawer, (width, height).into(), scale);
             env.draw();
         }
 
@@ -320,16 +289,6 @@ pub fn rui(view: impl View) {
         ))
     })
     .expect("run() failed");
-    event_loop.run(move |event, _, control_flow| {
-        // ControlFlow::Poll continuously runs the event loop, even if the OS hasn't
-        // dispatched any events. This is ideal for games and similar applications.
-        // *control_flow = ControlFlow::Poll;
-
-        // ControlFlow::Wait pauses the event loop if no events are available to process.
-        // This is ideal for non-game applications that only update in response to user
-        // input, and uses significantly less power/CPU time than ControlFlow::Poll.
-        *control_flow = ControlFlow::Wait;
-    });
 }
 
 #[cfg(target_arch = "wasm32")]

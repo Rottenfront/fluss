@@ -1,4 +1,4 @@
-use rui::*;
+use defui::*;
 
 fn main() {
     hstack((

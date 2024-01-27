@@ -112,7 +112,7 @@ impl<S1, SF, F> private::Sealed for MapView<S1, SF, F> {}
 ///
 /// #[derive(Debug, Default)]
 /// struct MyState {
-///     x: f32,
+///     x: f64,
 /// }
 ///
 /// fn main() {

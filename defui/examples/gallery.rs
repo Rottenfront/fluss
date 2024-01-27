@@ -1,4 +1,4 @@
-use rui::*;
+use defui::*;
 
 fn button_example() -> impl View {
     hstack((

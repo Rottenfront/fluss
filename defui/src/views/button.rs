@@ -1,7 +1,7 @@
 use crate::*;
 use accesskit::Role;
 
-pub const BUTTON_CORNER_RADIUS: f32 = 5.0;
+pub const BUTTON_CORNER_RADIUS: f64 = 5.0;
 
 /// Calls a function when the button is tapped.
 pub fn button<A: 'static, F: Fn(&mut Context) -> A + 'static + Clone>(
@@ -47,7 +47,7 @@ mod tests {
         let ui = state(
             || false,
             |pushed, _| {
-                button("button", move |cx| {
+                button(text("button"), move |cx| {
                     *pushed.get_mut(cx) = true;
                 })
             },
@@ -60,7 +60,7 @@ mod tests {
             &mut LayoutArgs {
                 sz,
                 cx: &mut cx,
-                text_bounds: &mut |_, _, _| LocalRect::new(LocalPoint::zero(), [90.0, 90.0].into()),
+                text_bounds: &mut |_, _, _, _| Ok(kurbo::Size { width: 90.0, height: 90.0 }),
             },
         );
         assert!(path.len() == 1);

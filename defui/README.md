@@ -78,11 +78,11 @@ use rui::*;
 
 #[derive(Default)]
 struct MyState {
-    value: f32,
+    value: f64,
 }
 
 /// A slider with a value.
-fn my_slider(s: impl Binding<f32>) -> impl View {
+fn my_slider(s: impl Binding<f64>) -> impl View {
     with_ref(s, move |v| {
         vstack((
             v.to_string().font_size(10).padding(Auto),

@@ -4,7 +4,7 @@ use std::any::Any;
 /// Struct for the `padding` modifier.
 pub struct Padding<V> {
     child: V,
-    padding: f32,
+    padding: f64,
 }
 
 impl<V> View for Padding<V>
@@ -26,7 +26,7 @@ where
 
     fn draw(&self, path: &mut IdPath, args: &mut DrawArgs) {
         args.vger.save();
-        args.vger.translate([self.padding, self.padding]);
+        args.vger.translate((self.padding, self.padding).into());
         path.push(0);
         self.child.draw(path, args);
         path.pop();
@@ -89,7 +89,7 @@ where
 
 pub enum PaddingParam {
     Auto,
-    Px(f32),
+    Px(f64),
 }
 pub struct Auto;
 impl From<Auto> for PaddingParam {
@@ -97,8 +97,8 @@ impl From<Auto> for PaddingParam {
         PaddingParam::Auto
     }
 }
-impl From<f32> for PaddingParam {
-    fn from(val: f32) -> Self {
+impl From<f64> for PaddingParam {
+    fn from(val: f64) -> Self {
         PaddingParam::Px(val)
     }
 }

@@ -1,4 +1,4 @@
-use rui::*;
+use defui::*;
 
 // This example shows how to nest a redux inside another redux.
 

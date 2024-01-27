@@ -123,7 +123,7 @@ impl DrawerState for SkiaDrawerState {
                     ),
                 )
                 .unwrap(),
-            font.size,
+            font.size as f32,
         );
         self.fonts.insert(self.last_font_id, font);
         self.last_font_id += 1;
@@ -138,11 +138,34 @@ impl DrawerState for SkiaDrawerState {
             Some(_) => Ok(()),
         }
     }
+
+    fn text_bounds(
+        &self,
+        text: &str,
+        max_width: Option<f64>,
+        font_id: FontId,
+        size: f64,
+    ) -> Result<kurbo::Size, DrawerError> {
+        let font = match self.fonts.get(&font_id.id) {
+            None => return Err(DrawerError::NoFont(font_id)),
+            Some(font) => font,
+        };
+        if let Some(font) = &font.with_size(size as f32) {
+            let (wraps, width) = get_text_wraps(text, font, max_width);
+            Ok(kurbo::Size::new(
+                width as _,
+                font.metrics().0 as f64 * (1.0 + wraps.len() as f64),
+            ))
+        } else {
+            Err(DrawerError::NoFont(font_id))
+        }
+    }
 }
 
 pub struct SkiaDrawer<'a> {
     canvas: &'a skia_safe::Canvas,
     state: &'a mut SkiaDrawerState,
+    current_translate: (f64, f64),
 }
 
 fn get_skia_path(shape: &impl Shape) -> SPath {
@@ -175,9 +198,46 @@ fn get_skia_paint(paint: Paint) -> SPaint {
     }
 }
 
+fn get_text_wraps(text: &str, font: &SFont, max_width: Option<f64>) -> (Vec<usize>, f64) {
+    let chars = text.chars();
+    let mut widths = Vec::new();
+    let mut buf = [0.0];
+    for c in chars {
+        font.get_widths(&[c as _], &mut buf);
+        widths.push(buf[0] as f64);
+    }
+
+    match max_width {
+        None => {
+            let mut width = 0.0;
+            for i in 0..text.len() {
+                width += widths[i];
+            }
+
+            (vec![], width)
+        }
+        Some(max_width) => {
+            let mut wraps = Vec::new();
+            let mut max_blob_width = 0.0;
+            let mut width = 0.0;
+            for i in 0..text.len() {
+                width += widths[i];
+                if width > max_width {
+                    wraps.push(i);
+                    width = 0.0;
+                    max_blob_width = max_width.max(max_width);
+                }
+            }
+
+            let width = max_blob_width.max(width);
+            (wraps, width)
+        }
+    }
+}
+
 impl<'a> SkiaDrawer<'a> {
     pub fn new(canvas: &'a skia_safe::Canvas, state: &'a mut SkiaDrawerState) -> Self {
-        Self { canvas, state }
+        Self { canvas, state, current_translate: (0.0, 0.0) }
     }
 }
 
@@ -193,6 +253,8 @@ impl<'a> Drawer<SkiaDrawerState> for SkiaDrawer<'a> {
     }
 
     fn translate(&mut self, point: kurbo::Point) -> Result<(), DrawerError> {
+        self.current_translate.0 += point.x as f64;
+        self.current_translate.1 += point.y as f64;
         self.canvas.translate((point.x as i32, point.y as i32));
         Ok(())
     }
@@ -215,9 +277,11 @@ impl<'a> Drawer<SkiaDrawerState> for SkiaDrawer<'a> {
 
     fn draw_text(
         &mut self,
-        text: String,
-        x: f32,
-        y: f32,
+        text: &str,
+        x: f64,
+        y: f64,
+        max_width: Option<f64>,
+        size: f64,
         font: FontId,
         paint: PaintId,
     ) -> Result<(), DrawerError> {
@@ -225,11 +289,17 @@ impl<'a> Drawer<SkiaDrawerState> for SkiaDrawer<'a> {
             None => Err(DrawerError::NoFont(font)),
             Some(sk_font) => {
                 self.canvas.draw_text_blob(
-                    match skia_safe::TextBlob::new(text, sk_font) {
+                    match skia_safe::TextBlob::new(
+                        text,
+                        match &sk_font.with_size(size as f32) {
+                            None => return Err(DrawerError::NoFont(font)),
+                            Some(font) => font,
+                        },
+                    ) {
                         None => return Err(DrawerError::NoFont(font)),
                         Some(blob) => blob,
                     },
-                    (x, y),
+                    (x as f32, y as f32),
                     match self.state.get_paint(paint) {
                         Err(e) => return Err(e),
                         Ok(paint) => paint,
@@ -242,5 +312,9 @@ impl<'a> Drawer<SkiaDrawerState> for SkiaDrawer<'a> {
 
     fn state(&mut self) -> &mut SkiaDrawerState {
         self.state
+    }
+
+    fn current_transform(&self) -> kurbo::Vec2 {
+        self.current_translate.into()
     }
 }

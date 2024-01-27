@@ -257,7 +257,7 @@ mod tests {
             &mut LayoutArgs {
                 sz,
                 cx: &mut cx,
-                text_bounds: &mut |_, _, _| LocalRect::new(LocalPoint::zero(), [90.0, 90.0].into()),
+                text_bounds: &mut |_, _, _, _| Ok(kurbo::Size { width: 90.0, height: 90.0 }),
             },
         );
         assert_eq!(path.len(), 1);

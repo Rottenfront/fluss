@@ -1,4 +1,4 @@
-use rui::*;
+use defui::*;
 
 fn main() {
     state(
@@ -6,7 +6,7 @@ fn main() {
         |count, cx| {
             vstack((
                 cx[count].padding(Auto),
-                button("increment", move |cx| {
+                button(text("increment"), move |cx| {
                     cx[count] += 1;
                 })
                 .padding(Auto),

@@ -1,8 +1,8 @@
-use rui::*;
+use defui::*;
 
 #[derive(Debug, Default)]
 struct MyState {
-    x: f32,
+    x: f64,
 }
 
 fn main() {

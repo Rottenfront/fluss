@@ -1,5 +1,5 @@
 pub enum StackItem {
-    Fixed(f32),
+    Fixed(f64),
     Flexible,
 }
 
@@ -9,11 +9,11 @@ pub enum StackItem {
 /// flexible items, will return `total`, since the flexible items
 /// will expand to fill the available space.
 pub fn stack_layout(
-    total: f32,
+    total: f64,
     sizes: &[StackItem],
-    intervals: &mut [(f32, f32)],
-    flex_length: &mut f32,
-) -> f32 {
+    intervals: &mut [(f64, f64)],
+    flex_length: &mut f64,
+) -> f64 {
     assert_eq!(sizes.len(), intervals.len());
 
     // Count the number of flexible items and total of fixed sizes.
@@ -27,7 +27,7 @@ pub fn stack_layout(
     }
 
     // length of flexible items is remaining size divided equally
-    *flex_length = (total - sizes_sum) / (flex_count as f32);
+    *flex_length = (total - sizes_sum) / (flex_count as f64);
 
     let mut x = 0.0;
     for i in 0..sizes.len() {

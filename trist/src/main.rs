@@ -1,3 +1,12 @@
+use std::time::{Duration, Instant};
+use trist::*;
+use winit::{
+    dpi::LogicalSize,
+    event::{Event, WindowEvent},
+    event_loop::{ControlFlow, EventLoop},
+    window::WindowBuilder,
+};
+
 #[cfg(feature = "skia")]
 fn main() {
     static EXPECTED_FRAME_DURATION: f32 = 1.0 / 60.0;
@@ -19,8 +28,7 @@ fn main() {
     // let dom = SvgDom::from_str(svg, font_mgr).unwrap();
 
     let mut previous_frame_start = Instant::now();
-    let mut modifiers = Modifiers::default();
-    let mut frame_duration = Duration::from_secs_f32(EXPECTED_FRAME_DURATION);
+    let frame_duration = Duration::from_secs_f32(EXPECTED_FRAME_DURATION);
 
     let state = env.get_drawer_state();
     let font = state
@@ -78,7 +86,7 @@ fn main() {
                 }))
                 .unwrap();
             drawer.draw_shape(&kurbo::Circle::new((100.0, 100.0), 100.0), black);
-            drawer.draw_text("chlen".to_string(), 100.0, 100.0, font, white);
+            drawer.draw_text("chlen", 100.0, 100.0, None, 13.0, font, white);
             env.draw();
         }
 

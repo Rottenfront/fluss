@@ -42,7 +42,7 @@ where
 
             args.vger.save();
 
-            args.vger.translate(offset);
+            args.vger.translate((offset.x, offset.y).into());
 
             ((self.func)(child)).draw(path, args);
 
@@ -54,7 +54,7 @@ where
     fn layout(&self, path: &mut IdPath, args: &mut LayoutArgs) -> LocalSize {
         match self.orientation {
             ListOrientation::Horizontal => {
-                let n = self.ids.len() as f32;
+                let n = self.ids.len() as f64;
                 let proposed_child_size = LocalSize::new(args.sz.width / n, args.sz.height);
 
                 let mut sizes = Vec::<LocalSize>::new();
@@ -97,7 +97,7 @@ where
                 LocalSize::new(width_sum, max_height)
             }
             ListOrientation::Vertical => {
-                let n = self.ids.len() as f32;
+                let n = self.ids.len() as f64;
                 let proposed_child_size = LocalSize::new(args.sz.width, args.sz.height / n);
 
                 let mut sizes = Vec::<LocalSize>::new();

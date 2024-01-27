@@ -1,7 +1,7 @@
 use crate::*;
 
-const SLIDER_WIDTH: f32 = 4.0;
-const SLIDER_THUMB_RADIUS: f32 = 10.0;
+const SLIDER_WIDTH: f64 = 4.0;
+const SLIDER_THUMB_RADIUS: f64 = 10.0;
 
 #[derive(Clone, Copy)]
 pub struct SliderOptions {
@@ -21,7 +21,7 @@ pub trait SliderMods: View + Sized {
 }
 
 /// Horizontal slider built from other Views.
-pub fn hslider(value: impl Binding<f32>) -> impl SliderMods {
+pub fn hslider(value: impl Binding<f64>) -> impl SliderMods {
     modview(move |opts: SliderOptions, _| {
         state(
             || 0.0,
@@ -37,25 +37,37 @@ pub fn hslider(value: impl Binding<f32>) -> impl SliderMods {
                     let end_x = w - r;
                     let x = (1.0 - v) * start_x + v * (end_x);
 
-                    let paint = vger.color_paint(BUTTON_BACKGROUND_COLOR);
-                    vger.fill_rect(
-                        euclid::rect(
-                            start_x,
-                            c.y - SLIDER_WIDTH / 2.0,
-                            sz.size.width - 2.0 * r,
-                            SLIDER_WIDTH,
+                    let paint = vger
+                        .state()
+                        .create_fast_paint(Paint::Color(BUTTON_BACKGROUND_COLOR))
+                        .unwrap();
+                    vger.draw_shape(
+                        &kurbo::Rect::new(
+                            start_x as _,
+                            c.y - SLIDER_WIDTH / 2.0 as _,
+                            sz.size.width - 2.0 * r as _,
+                            SLIDER_WIDTH as _,
                         ),
-                        0.0,
                         paint,
                     );
-                    let paint = vger.color_paint(AZURE_HIGHLIGHT_BACKGROUND);
-                    vger.fill_rect(
-                        euclid::rect(start_x, c.y - SLIDER_WIDTH / 2.0, x, SLIDER_WIDTH),
-                        0.0,
+                    let paint = vger
+                        .state()
+                        .create_fast_paint(Paint::Color(AZURE_HIGHLIGHT_BACKGROUND))
+                        .unwrap();
+                    vger.draw_shape(
+                        &kurbo::Rect::new(
+                            start_x as _,
+                            c.y - SLIDER_WIDTH / 2.0 as _,
+                            x as _,
+                            SLIDER_WIDTH as _,
+                        ),
                         paint,
                     );
-                    let paint = vger.color_paint(opts.thumb);
-                    vger.fill_circle([x, c.y], r, paint);
+                    let paint = vger
+                        .state()
+                        .create_fast_paint(Paint::Color(opts.thumb))
+                        .unwrap();
+                    vger.draw_shape(&kurbo::Circle::new((x as f64, c.y as f64), r as f64), paint);
                 })
                 .geom(move |cx, sz, _| {
                     if sz.width != cx[width] {
@@ -87,8 +99,8 @@ where
 
 /// Vertical slider built from other Views.
 pub fn vslider(
-    value: f32,
-    set_value: impl Fn(&mut Context, f32) + 'static + Copy,
+    value: f64,
+    set_value: impl Fn(&mut Context, f64) + 'static + Copy,
 ) -> impl SliderMods {
     modview(move |opts: SliderOptions, _| {
         state(

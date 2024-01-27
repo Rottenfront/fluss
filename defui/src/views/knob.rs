@@ -1,14 +1,14 @@
 use crate::*;
 
-const THETA_MIN: f32 = 3.0 / 2.0 * std::f32::consts::PI;
-const THETA_MAX: f32 = 7.0 / 2.0 * std::f32::consts::PI;
+const THETA_MIN: f64 = 3.0 / 2.0 * std::f64::consts::PI;
+const THETA_MAX: f64 = 7.0 / 2.0 * std::f64::consts::PI;
 
-fn lerp(x: f32, a: f32, b: f32) -> f32 {
+fn lerp(x: f64, a: f64, b: f64) -> f64 {
     (1.0 - x) * a + x * b
 }
 
 /// Knob for controlling a 0 to 1 floating point parameter.
-pub fn knob(value: impl Binding<f32>) -> impl View {
+pub fn knob(value: impl Binding<f64>) -> impl View {
     zstack((
         circle()
             .color(CLEAR_COLOR)
@@ -22,13 +22,13 @@ pub fn knob(value: impl Binding<f32>) -> impl View {
 
             let paint = vger.color_paint(CONTROL_BACKGROUND);
 
-            vger.stroke_arc(c, r, 2.0, 0.0, std::f32::consts::PI, paint);
+            vger.stroke_arc(c, r, 2.0, 0.0, std::f64::consts::PI, paint);
 
             let paint = vger.color_paint(AZURE_HIGHLIGHT);
             let a0 = lerp(*value.get(cx), THETA_MAX, THETA_MIN);
             let a1 = THETA_MAX;
 
-            let theta = -(a0 + a1) / 2.0 + std::f32::consts::PI;
+            let theta = -(a0 + a1) / 2.0 + std::f64::consts::PI;
             let ap = (a0 - a1).abs() / 2.0;
 
             vger.stroke_arc(c, r, 2.0, theta, ap, paint);
@@ -46,7 +46,7 @@ mod tests {
         let mut cx = Context::new();
 
         let ui = state(|| 0.0, |s, _| knob(s));
-        let sz = [100.0, 100.0].into();
+        let sz = (100.0, 100.0).into();
 
         let mut path = vec![0];
         let knob_sz = ui.layout(
@@ -54,27 +54,27 @@ mod tests {
             &mut LayoutArgs {
                 sz,
                 cx: &mut cx,
-                text_bounds: &mut |_, _, _| LocalRect::zero(),
+                text_bounds: &mut |_, _, _, _| LocalRect::zero(),
             },
         );
 
         assert_eq!(knob_sz, sz);
-        let s = StateHandle::<f32>::new(cx.view_id(&path));
+        let s = StateHandle::<f64>::new(cx.view_id(&path));
         assert_eq!(*s.get(&cx), 0.0);
 
         let events = [
             Event::TouchBegin {
                 id: 0,
-                position: [50.0, 50.0].into(),
+                position: (50.0, 50.0).into(),
             },
             Event::TouchMove {
                 id: 0,
-                position: [100.0, 50.0].into(),
-                delta: [50.0, 0.0].into(),
+                position: (100.0, 50.0).into(),
+                delta: (50.0, 0.0).into(),
             },
             Event::TouchEnd {
                 id: 0,
-                position: [100.0, 50.0].into(),
+                position: (100.0, 50.0).into(),
             },
         ];
 

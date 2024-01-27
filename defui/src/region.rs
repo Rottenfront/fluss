@@ -3,7 +3,7 @@ use euclid::*;
 /// Region type cribbed from Druid.
 #[derive(Clone, Debug)]
 pub struct Region<Space> {
-    rects: Vec<Rect<f32, Space>>,
+    rects: Vec<Rect<f64, Space>>,
 }
 
 impl<Space> Region<Space> {
@@ -12,19 +12,19 @@ impl<Space> Region<Space> {
 
     /// Returns the collection of rectangles making up this region.
     #[inline]
-    pub fn rects(&self) -> &[Rect<f32, Space>] {
+    pub fn rects(&self) -> &[Rect<f64, Space>] {
         &self.rects
     }
 
     /// Adds a rectangle to this region.
-    pub fn add_rect(&mut self, rect: Rect<f32, Space>) {
+    pub fn add_rect(&mut self, rect: Rect<f64, Space>) {
         if !rect.is_empty() {
             self.rects.push(rect);
         }
     }
 
     /// Replaces this region with a single rectangle.
-    pub fn set_rect(&mut self, rect: Rect<f32, Space>) {
+    pub fn set_rect(&mut self, rect: Rect<f64, Space>) {
         self.clear();
         self.add_rect(rect);
     }
@@ -35,9 +35,9 @@ impl<Space> Region<Space> {
     }
 
     /// Returns a rectangle containing this region.
-    pub fn bounding_box(&self) -> Rect<f32, Space> {
+    pub fn bounding_box(&self) -> Rect<f64, Space> {
         if self.rects.is_empty() {
-            Rect::<f32, Space>::default()
+            Rect::<f64, Space>::default()
         } else {
             self.rects[1..]
                 .iter()
@@ -46,7 +46,7 @@ impl<Space> Region<Space> {
     }
 
     /// Returns `true` if this region has a non-empty intersection with the given rectangle.
-    pub fn intersects(&self, rect: Rect<f32, Space>) -> bool {
+    pub fn intersects(&self, rect: Rect<f64, Space>) -> bool {
         self.rects.iter().any(|r| r.intersects(&rect))
     }
 
@@ -71,24 +71,24 @@ impl<Space> Region<Space> {
     // }
 }
 
-impl<Space> std::ops::AddAssign<Vector2D<f32, Space>> for Region<Space> {
-    fn add_assign(&mut self, rhs: Vector2D<f32, Space>) {
+impl<Space> std::ops::AddAssign<Vector2D<f64, Space>> for Region<Space> {
+    fn add_assign(&mut self, rhs: Vector2D<f64, Space>) {
         for r in &mut self.rects {
             *r = r.translate(rhs)
         }
     }
 }
 
-impl<Space> std::ops::SubAssign<Vector2D<f32, Space>> for Region<Space> {
-    fn sub_assign(&mut self, rhs: Vector2D<f32, Space>) {
+impl<Space> std::ops::SubAssign<Vector2D<f64, Space>> for Region<Space> {
+    fn sub_assign(&mut self, rhs: Vector2D<f64, Space>) {
         for r in &mut self.rects {
             *r = r.translate(-rhs)
         }
     }
 }
 
-impl<Space> From<Rect<f32, Space>> for Region<Space> {
-    fn from(rect: Rect<f32, Space>) -> Region<Space> {
+impl<Space> From<Rect<f64, Space>> for Region<Space> {
+    fn from(rect: Rect<f64, Space>) -> Region<Space> {
         Region { rects: vec![rect] }
     }
 }

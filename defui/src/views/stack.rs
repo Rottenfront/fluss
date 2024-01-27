@@ -60,18 +60,23 @@ impl<VT: ViewTuple + 'static, D: StackDirection + 'static> View for Stack<VT, D>
 
             args.vger.save();
 
-            args.vger.translate(layout_box.offset);
+            args.vger.translate((layout_box.offset.x as _, layout_box.offset.y as _).into());
 
             (*child).draw(path, args);
             c += 1;
 
             if DEBUG_LAYOUT {
-                let paint = args.vger.color_paint(CONTROL_BACKGROUND);
-                args.vger.stroke_rect(
-                    layout_box.rect.min(),
-                    layout_box.rect.max(),
-                    0.0,
-                    1.0,
+                let paint = args.vger
+                        .state()
+                        .create_fast_paint(Paint::Color(BUTTON_BACKGROUND_COLOR))
+                        .unwrap();
+                args.vger.draw_shape(
+                    &kurbo::Rect::new(
+                        layout_box.rect.min_x() as _,
+                        layout_box.rect.min_y() as _,
+                        layout_box.rect.max_x() as _,
+                        layout_box.rect.max_y() as _,
+                    ),
                     paint,
                 );
             }
@@ -83,7 +88,7 @@ impl<VT: ViewTuple + 'static, D: StackDirection + 'static> View for Stack<VT, D>
     }
 
     fn layout(&self, path: &mut IdPath, args: &mut LayoutArgs) -> LocalSize {
-        let n = self.children.len() as f32;
+        let n = self.children.len() as f64;
 
         match D::ORIENTATION {
             StackOrientation::Horizontal => {

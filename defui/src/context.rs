@@ -7,23 +7,23 @@ use std::iter::FromIterator;
 use std::ops;
 
 pub struct ScreenSpace;
-pub type ScreenSize = Size2D<f32, ScreenSpace>;
+pub type ScreenSize = Size2D<f64, ScreenSpace>;
 
 pub struct WorldSpace;
-pub type WorldPoint = Point2D<f32, WorldSpace>;
+pub type WorldPoint = Point2D<f64, WorldSpace>;
 
 pub struct LocalSpace {}
-pub type LocalPoint = Point2D<f32, LocalSpace>;
-pub type LocalVector = Vector2D<f32, LocalSpace>;
-pub type LocalSize = Size2D<f32, LocalSpace>;
+pub type LocalPoint = Point2D<f64, LocalSpace>;
+pub type LocalVector = Vector2D<f64, LocalSpace>;
+pub type LocalSize = Size2D<f64, LocalSpace>;
 
-pub type LocalToWorld = Transform2D<f32, LocalSpace, WorldSpace>;
-pub type WorldToLocal = Transform2D<f32, WorldSpace, LocalSpace>;
-pub type LocalTransform = Transform2D<f32, LocalSpace, LocalSpace>;
+pub type LocalToWorld = Transform2D<f64, LocalSpace, WorldSpace>;
+pub type WorldToLocal = Transform2D<f64, WorldSpace, LocalSpace>;
+pub type LocalTransform = Transform2D<f64, LocalSpace, LocalSpace>;
 
-pub type LocalRect = Rect<f32, LocalSpace>;
-pub type LocalOffset = Vector2D<f32, LocalSpace>;
-pub type WorldRect = Rect<f32, WorldSpace>;
+pub type LocalRect = Rect<f64, LocalSpace>;
+pub type LocalOffset = Vector2D<f64, LocalSpace>;
+pub type WorldRect = Rect<f64, WorldSpace>;
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct CommandInfo {
@@ -106,7 +106,7 @@ pub struct Context {
     pub(crate) id_stack: Vec<ViewId>,
 
     /// Previous window size.
-    window_size: Size2D<f32, WorldSpace>,
+    window_size: Size2D<f64, WorldSpace>,
 
     /// Offset for events at the root level.
     root_offset: LocalOffset,
@@ -165,7 +165,7 @@ impl Context {
         view: &impl View,
         vger: &mut SkiaDrawerState,
         access_nodes: &mut Vec<(accesskit::NodeId, accesskit::Node)>,
-        window_size: Size2D<f32, WorldSpace>,
+        window_size: Size2D<f64, WorldSpace>,
     ) -> bool {
         // If the window size has changed, force a relayout.
         if window_size != self.window_size {
@@ -219,7 +219,7 @@ impl Context {
                 &mut LayoutArgs {
                     sz: [window_size.width, window_size.height].into(),
                     cx: self,
-                    text_bounds: &mut |str, size, max_width| vger.text_bounds(str, size, max_width),
+                    text_bounds: &mut |s, size, max_width, font| vger.text_bounds(s, max_width, font, size),
                 },
             );
             assert_eq!(path.len(), 1);
@@ -238,24 +238,11 @@ impl Context {
     /// Redraw the UI using wgpu.
     pub fn render(
         &mut self,
-        render_info: RenderInfo,
         view: &impl View,
         vger: &mut SkiaDrawer,
-        window_size: Size2D<f32, WorldSpace>,
-        scale: f32,
+        window_size: Size2D<f64, WorldSpace>,
+        scale: f64,
     ) {
-        let surface = render_info.surface;
-        let device = render_info.device;
-        let config = render_info.config;
-        let frame = match surface.get_current_texture() {
-            Ok(frame) => frame,
-            Err(_) => {
-                surface.configure(device, config);
-                surface
-                    .get_current_texture()
-                    .expect("Failed to acquire next surface texture!")
-            }
-        };
 
         let mut path = vec![0];
         // Disable dirtying the state during layout and rendering
@@ -267,7 +254,7 @@ impl Context {
             &mut LayoutArgs {
                 sz: local_window_size,
                 cx: self,
-                text_bounds: &mut |str, size, max_width| vger.text_bounds(str, size, max_width),
+                text_bounds: &mut |s, size, max_width, font| vger.state().text_bounds(s, max_width, font, size),
             },
         );
         assert!(path.len() == 1);
@@ -275,12 +262,13 @@ impl Context {
         // Center the root view in the window.
         self.root_offset = ((local_window_size - sz) / 2.0).into();
 
-        vger.translate((self.root_offset.x, self.root_offset.y).into());
+        vger.translate((self.root_offset.x as _, self.root_offset.y as _).into());
         view.draw(&mut path, &mut DrawArgs { cx: self, vger });
+        /*
         self.enable_dirty = true;
 
         if self.render_dirty {
-            let paint = vger.color_paint(RED_HIGHLIGHT);
+            let paint = vger.state().create_fast_paint(Paint::Color(RED_HIGHLIGHT));
             let xf = WorldToLocal::identity();
             for rect in self.dirty_region.rects() {
                 vger.stroke_rect(
@@ -291,9 +279,11 @@ impl Context {
                     paint,
                 );
             }
+            // TODO impl this
         }
 
         self.dirty_region.clear();
+        */
     }
 
     /// Process a UI event.

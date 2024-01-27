@@ -37,7 +37,7 @@ impl TextEditorState {
         range: std::ops::Range<usize>,
         rects: &[LocalRect],
     ) -> usize {
-        let mut d = std::f32::MAX;
+        let mut d = std::f64::MAX;
         let mut closest = 0;
         for i in range {
             let dp = rects[i].center().distance_to(p);
@@ -143,7 +143,7 @@ pub fn text_editor(text: impl Binding<String>) -> impl View {
         state(TextEditorState::new, move |state, cx| {
             let cursor = cx[state].cursor;
             canvas(move |cx, rect, vger| {
-                vger.translate([0.0, rect.height()]);
+                vger.translate((0.0, rect.height()).into());
                 let font_size = 18;
                 let break_width = Some(rect.width());
 
@@ -152,7 +152,7 @@ pub fn text_editor(text: impl Binding<String>) -> impl View {
                 if has_focus {
                     let rects = vger.glyph_positions(text.get(cx), font_size, break_width);
                     let lines = vger.line_metrics(text.get(cx), font_size, break_width);
-                    let glyph_rect_paint = vger.color_paint(vger::Color::MAGENTA);
+                    let glyph_rect_paint = vger.color_paint(Color::MAGENTA);
                     let p = if cursor == rects.len() {
                         if let Some(r) = rects.last() {
                             [r.origin.x + r.size.width, r.origin.y].into()
@@ -162,7 +162,7 @@ pub fn text_editor(text: impl Binding<String>) -> impl View {
                     } else {
                         rects[cursor].origin
                     };
-                    vger.fill_rect(LocalRect::new(p, [2.0, 20.0].into()), 0.0, glyph_rect_paint);
+                    vger.fill_rect(LocalRect::new(p.x, p.y, p.x + 2.0, p.y + 20.0), 0.0, glyph_rect_paint);
 
                     cx[state].glyph_rects = rects;
                     cx[state].lines = lines;

@@ -1,4 +1,4 @@
-use rui::*;
+use defui::*;
 
 fn main() {
     let data = vec!["John", "Paul", "George", "Ringo"];

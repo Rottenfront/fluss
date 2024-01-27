@@ -30,9 +30,6 @@ pub use context::*;
 mod views;
 pub use views::*;
 
-mod paint;
-pub use paint::*;
-
 mod modifiers;
 pub use modifiers::*;
 

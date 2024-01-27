@@ -1,4 +1,4 @@
-use rui::*;
+use defui::*;
 
 fn main() {
     state(Counters::default, |counters, cx| {

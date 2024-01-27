@@ -14,12 +14,12 @@ pub fn toggle(on: impl Binding<bool>) -> impl View {
                         CONTROL_BACKGROUND
                     })
                     .corner_radius(10.0)
-                    .size([40.0, 20.0])
+                    .size((40.0, 20.0))
                     .tap(move |cx| on.with_mut(cx, |b| *b = !*b)),
                 circle()
                     .color(if b { AZURE_HIGHLIGHT } else { MEDIUM_GRAY })
-                    .size([10.0, 10.0])
-                    .offset([if b { 25.0 } else { 5.0 }, 5.0]),
+                    .size((10.0, 10.0))
+                    .offset((if b { 25.0 } else { 5.0 }, 5.0)),
             ))
         },
     )
@@ -35,7 +35,7 @@ mod tests {
         let mut cx = Context::new();
 
         let ui = state(|| false, |s, _| toggle(s));
-        let sz = [40.0, 20.0].into();
+        let sz = (40.0, 20.0).into();
 
         let mut path = vec![0];
         let knob_sz = ui.layout(
@@ -43,7 +43,7 @@ mod tests {
             &mut LayoutArgs {
                 sz,
                 cx: &mut cx,
-                text_bounds: &mut |_, _, _| LocalRect::zero(),
+                text_bounds: &mut |_, _, _, _| Ok(kurbo::Size { width: 0.0, height: 0.0 }),
             },
         );
 
@@ -54,11 +54,11 @@ mod tests {
         let events = [
             Event::TouchBegin {
                 id: 0,
-                position: [10.0, 10.0].into(),
+                position: (10.0, 10.0).into(),
             },
             Event::TouchEnd {
                 id: 0,
-                position: [10.0, 10.0].into(),
+                position: (10.0, 10.0).into(),
             },
         ];
 

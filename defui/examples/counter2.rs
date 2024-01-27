@@ -1,16 +1,16 @@
-use rui::*;
+use defui::*;
 
 fn main() {
     state(
         || 1,
         |count, cx| {
             vstack((
-                format!("{}", cx[count]).padding(Auto),
-                button("increment", move |cx| {
+                text(&format!("{}", cx[count])).padding(Auto),
+                button(text("increment"), move |cx| {
                     cx[count] += 1;
                 })
                 .padding(Auto),
-                button("decrement", move |cx| {
+                button(text("decrement"), move |cx| {
                     cx[count] -= 1;
                 })
                 .padding(Auto),

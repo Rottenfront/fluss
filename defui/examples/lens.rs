@@ -1,11 +1,11 @@
-use rui::*;
+use defui::*;
 
 #[derive(Default)]
 struct MyState {
-    value: f32,
+    value: f64,
 }
 
-make_lens!(ValueLens, MyState, f32, value);
+make_lens!(ValueLens, MyState, f64, value);
 
 fn main() {
     state(MyState::default, |state, cx| {

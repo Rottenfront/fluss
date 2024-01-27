@@ -1,4 +1,4 @@
-use rui::*;
+use defui::*;
 use std::{
     thread::{sleep, spawn},
     time::Duration,

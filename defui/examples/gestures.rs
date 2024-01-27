@@ -1,4 +1,4 @@
-use rui::*;
+use defui::*;
 
 fn anim_to(current: &mut LocalOffset, target: LocalOffset) -> bool {
     if *current != target {

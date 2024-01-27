@@ -4,12 +4,12 @@ pub use kurbo::*;
 use winit::{event::MouseButton, keyboard::Key};
 
 pub enum WidgetEvent {
-    CursorMove((f32, f32)),
+    CursorMove((f64, f64)),
     CursorLeft,
     ButtonPress(MouseButton),
     ButtonRelease(MouseButton),
     Scroll {
-        delta: (f32, f32),
+        delta: (f64, f64),
     },
     KeyboardInput {
         key: Key,
@@ -18,7 +18,7 @@ pub enum WidgetEvent {
         ctrl: bool,
         alt: bool,
     },
-    Resized((f32, f32)),
+    Resized((f64, f64)),
     Disabled,
     Enabled,
 
@@ -87,10 +87,10 @@ impl BezierPathTrait for Vec<BezierCurve> {
 }
 
 pub struct Color {
-    r: f32,
-    g: f32,
-    b: f32,
-    a: f32,
+    r: f64,
+    g: f64,
+    b: f64,
+    a: f64,
 }
 
 pub enum Filler {

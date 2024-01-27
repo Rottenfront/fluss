@@ -26,7 +26,7 @@ where
 
     fn draw(&self, path: &mut IdPath, args: &mut DrawArgs) {
         args.vger.save();
-        args.vger.translate(self.offset);
+        args.vger.translate((self.offset.x, self.offset.y).into());
         path.push(0);
         self.child.draw(path, args);
         path.pop();

@@ -15,7 +15,8 @@ default = ["winit"]
 euclid = "0.22.7"
 futures = "0.3"
 trist = { path = "../trist" }
-accesskit = "0.11.0"
+kurbo = "0.10"
+accesskit = "0.12"
 lazy_static = "1.4.0"
 winit = { version = "0.29", optional = true }
 
@@ -26,5 +27,5 @@ winit = { version = "0.29", optional = true }
 wasm-bindgen = "0.2.76"
 web-sys = { version = "^0.3.61", features = ["Location"] }
 log = "0.4"
-console_log = "0.1.2"
+console_log = "1"
 console_error_panic_hook = "0.1.6"

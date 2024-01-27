@@ -1,4 +1,4 @@
-use rui::*;
+use defui::*;
 
 fn main() {
     list(vec![7, 42], |i| {

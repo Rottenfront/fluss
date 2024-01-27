@@ -1,4 +1,4 @@
-use rui::*;
+use defui::*;
 
 // This example shows how to mix the redux style, with state local
 // to a view.

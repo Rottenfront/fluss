@@ -1,15 +1,15 @@
 use crate::*;
 use std::any::{Any, TypeId};
 
-pub struct DrawArgs<'a> {
+pub struct DrawArgs<'a, 'b> {
     pub cx: &'a mut Context,
-    pub vger: &'a mut Vger,
+    pub vger: &'a mut SkiaDrawer<'b>,
 }
 
 pub struct LayoutArgs<'a> {
     pub sz: LocalSize,
     pub cx: &'a mut Context,
-    pub text_bounds: &'a mut dyn FnMut(&str, u32, Option<f32>) -> LocalRect,
+    pub text_bounds: &'a mut dyn FnMut(&str, f64, Option<f64>, FontId) -> Result<kurbo::Size, DrawerError>,
 }
 
 impl<'a> LayoutArgs<'a> {

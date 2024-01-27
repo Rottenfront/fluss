@@ -38,7 +38,7 @@ enum AppFocus {
     None,
 }
 
-static EXPECTED_FRAME_DURATION: f32 = 1.0 / 60.0;
+static EXPECTED_FRAME_DURATION: f64 = 1.0 / 60.0;
 
 struct ApplicationState {
     editors: Split,
@@ -105,7 +105,7 @@ impl ApplicationState {
 
             previous_frame_start: Instant::now(),
             modifiers: Modifiers::default(),
-            frame_duration: Duration::from_secs_f32(EXPECTED_FRAME_DURATION),
+            frame_duration: Duration::from_secs_f64(EXPECTED_FRAME_DURATION),
 
             keypress_map: HashMap::new(),
             mouse_map: HashMap::new(),

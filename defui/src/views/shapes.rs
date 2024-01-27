@@ -7,7 +7,7 @@ pub struct Circle {
 }
 
 impl Circle {
-    fn geom(&self, path: &IdPath, cx: &mut Context) -> (LocalPoint, f32) {
+    fn geom(&self, path: &IdPath, cx: &mut Context) -> (LocalPoint, f64) {
         let rect = cx.get_layout(path).rect;
 
         (rect.center(), rect.size.width.min(rect.size.height) / 2.0)
@@ -25,8 +25,11 @@ impl View for Circle {
         let (center, radius) = self.geom(path, args.cx);
 
         let vger = &mut args.vger;
-        let paint = self.paint.vger_paint(vger);
-        vger.fill_circle(center, radius, paint);
+        let paint = vger.state().create_fast_paint(self.paint).unwrap();
+        vger.draw_shape(
+            &kurbo::Circle::new((center.x as f64, center.y as f64), radius),
+            paint,
+        );
     }
 
     fn layout(&self, path: &mut IdPath, args: &mut LayoutArgs) -> LocalSize {
@@ -67,7 +70,7 @@ pub fn circle() -> Circle {
 /// Struct for `rectangle`.
 #[derive(Clone)]
 pub struct Rectangle {
-    corner_radius: f32,
+    corner_radius: f64,
     paint: Paint,
 }
 
@@ -85,7 +88,7 @@ impl Rectangle {
     }
 
     /// Sets the rectangle's corner radius.
-    pub fn corner_radius(self, radius: f32) -> Rectangle {
+    pub fn corner_radius(self, radius: f64) -> Rectangle {
         Rectangle {
             corner_radius: radius,
             paint: self.paint,
@@ -98,8 +101,14 @@ impl View for Rectangle {
         let rect = self.geom(path, args.cx);
 
         let vger = &mut args.vger;
-        let paint = self.paint.vger_paint(vger);
-        vger.fill_rect(rect, self.corner_radius, paint);
+        let paint = vger.state().create_fast_paint(self.paint).unwrap();
+        vger.draw_shape(
+            &kurbo::Rect::new(rect.min_x(), rect.min_y(), rect.max_x(), rect.max_y())
+                .to_rounded_rect(kurbo::RoundedRectRadii::from_single_radius(
+                    self.corner_radius,
+                )),
+            paint,
+        );
     }
 
     fn layout(&self, path: &mut IdPath, args: &mut LayoutArgs) -> LocalSize {

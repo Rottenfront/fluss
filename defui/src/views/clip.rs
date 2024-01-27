@@ -38,7 +38,12 @@ where
         let rect = self.geom(path, args.cx);
 
         args.vger.save();
-        args.vger.scissor(rect);
+        args.vger.clip_shape(&kurbo::Rect::new(
+            rect.min_x() as _,
+            rect.min_y() as _,
+            rect.max_x() as _,
+            rect.max_y() as _,
+        ));
         path.push(0);
         self.child.draw(path, args);
         path.pop();
