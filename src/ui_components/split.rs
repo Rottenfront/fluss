@@ -3,6 +3,7 @@ use crate::canvas::Drawer;
 use super::tab_system::TabSystem;
 use skia_safe::Rect;
 
+#[allow(dead_code)]
 pub enum SplitDirection {
     Vertical,
     Horizontal,
@@ -114,6 +115,7 @@ impl Split {
     }
 }
 
+#[allow(dead_code)]
 pub enum SplitItem {
     Split(Split),
     TabSystem(TabSystem),

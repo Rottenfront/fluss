@@ -1,0 +1,33 @@
+[package]
+name = "defui"
+description = "Experimental Declarative UI library"
+version = "0.1.0"
+license = "MPLv2"
+authors = ["Andre Rottenfront"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+default = ["winit-backend"]
+
+winit-backend = ["winit"]
+
+[dependencies]
+futures = "0.3"
+trist = { path = "../trist" }
+kurbo = { path = "../kurbo" }
+accesskit = "0.12"
+lazy_static = "1.4.0"
+winit = { version = "0.29", optional = true }
+flo_binding = "2"
+
+# Seems we can't publish to crates.io with this dependency.
+# baseview = { git = "https://github.com/RustAudio/baseview", optional = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2.76"
+web-sys = { version = "^0.3.61", features = ["Location"] }
+log = "0.4"
+console_log = "1"
+console_error_panic_hook = "0.1.6"

@@ -1,4 +1,4 @@
-workspace = { members = ["trist", ".", "defui"] }
+workspace = { members = ["crates/trist", ".", "crates/defui"] }
 [package]
 name = "fluss"
 version = "0.1.0"

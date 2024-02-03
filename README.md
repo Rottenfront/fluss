@@ -2,7 +2,9 @@
 
 Pronounced as [flʊs]
 
-Fluss is experimental editor that tries to implement modular and extensible system development environment. Mainly backend is based on Skia, and it is planned to add piet backend.
+Fluss is experimental editor that tries to implement modular and extensible
+system development environment. Mainly backend is based on Skia, and it is
+also possible to add piet backend.
 
 ## TODO list
 
@@ -73,12 +75,3 @@ Don't look at this project as a product until all these points are completed.
 There are also plans to support ChatGPT/Copilot or Codeium in the foreseeable
 future.
 If possible, CRDTs will be implemented for multi-user source code editing.
-
-## Why?
-
-I am doing this project as my goal in Rust programming.
-I want to create an editor in which I will enjoy writing code.
-This is a pet project started by an ordinary lyceum student with a
-specialization in physics and mathematics.
-Don't expect anything very big from him.
-Perhaps in a couple of months this repository will cease to exist.
