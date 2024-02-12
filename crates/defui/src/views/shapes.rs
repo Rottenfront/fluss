@@ -2,25 +2,25 @@ use crate::*;
 
 /// Struct for `circle`.
 #[derive(Clone)]
-pub struct Circle {
+pub struct CircleShape {
     paint: Paint,
 }
 
-impl Circle {
+impl CircleShape {
     fn geom(&self, path: &IdPath, cx: &mut Context) -> (LocalPoint, f64) {
         let rect = cx.get_layout(path).rect;
 
         (rect.center(), rect.size.width.min(rect.size.height) / 2.0)
     }
 
-    pub fn color(self, color: Color) -> Circle {
-        Circle {
+    pub fn color(self, color: Color) -> CircleShape {
+        CircleShape {
             paint: Paint::Color(color),
         }
     }
 }
 
-impl View for Circle {
+impl View for CircleShape {
     fn draw(&self, path: &mut IdPath, args: &mut DrawArgs) {
         let (center, radius) = self.geom(path, args.cx);
 
@@ -58,45 +58,45 @@ impl View for Circle {
     }
 }
 
-impl private::Sealed for Circle {}
+impl private::Sealed for CircleShape {}
 
 /// Renders a circle which expands to fill available space.
-pub fn circle() -> Circle {
-    Circle {
+pub fn circle() -> CircleShape {
+    CircleShape {
         paint: Paint::Color(Color::CYAN),
     }
 }
 
 /// Struct for `rectangle`.
 #[derive(Clone)]
-pub struct Rectangle {
+pub struct RectShape {
     corner_radius: f64,
     paint: Paint,
 }
 
-impl Rectangle {
+impl RectShape {
     fn geom(&self, path: &IdPath, cx: &mut Context) -> LocalRect {
         cx.get_layout(path).rect
     }
 
     /// Sets the fill color for the rectangle.
-    pub fn color(self, color: Color) -> Rectangle {
-        Rectangle {
+    pub fn color(self, color: Color) -> RectShape {
+        RectShape {
             corner_radius: self.corner_radius,
             paint: Paint::Color(color),
         }
     }
 
     /// Sets the rectangle's corner radius.
-    pub fn corner_radius(self, radius: f64) -> Rectangle {
-        Rectangle {
+    pub fn corner_radius(self, radius: f64) -> RectShape {
+        RectShape {
             corner_radius: radius,
             paint: self.paint,
         }
     }
 }
 
-impl View for Rectangle {
+impl View for RectShape {
     fn draw(&self, path: &mut IdPath, args: &mut DrawArgs) {
         let rect = self.geom(path, args.cx);
 
@@ -137,11 +137,11 @@ impl View for Rectangle {
     }
 }
 
-impl private::Sealed for Rectangle {}
+impl private::Sealed for RectShape {}
 
 /// Renders a rectangle which expands to fill available space.
-pub fn rectangle() -> Rectangle {
-    Rectangle {
+pub fn rectangle() -> RectShape {
+    RectShape {
         corner_radius: 0.0,
         paint: Paint::Color(Color::CYAN),
     }

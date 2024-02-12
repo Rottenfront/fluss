@@ -7,7 +7,7 @@ use std::{
 
 pub const DEBUG_LAYOUT: bool = false;
 
-struct ViewState {
+pub struct ViewState {
     /// Describes nesting level of widget. Root widget has level 0
     level: usize,
     item: Box<dyn View>,
@@ -19,18 +19,20 @@ pub(crate) struct StateHolder {
     pub dirty: bool,
 }
 
-pub(crate) type Arena = HashMap<ViewId, ViewState>;
+pub type Arena = HashMap<ViewId, ViewState>;
 
 pub struct WindowProperties {
-    transparent: bool,
+    pub(crate) transparent: bool,
 
-    window_size: Size,
+    pub(crate) scale: f64,
+
+    pub(crate) window_size: Size,
 
     /// The current title of the window
-    window_title: String,
+    pub(crate) window_title: String,
 
     /// Are we fullscreen?
-    fullscreen: bool,
+    pub(crate) fullscreen: bool,
 }
 
 impl WindowProperties {
@@ -55,6 +57,7 @@ impl Default for WindowProperties {
     fn default() -> Self {
         Self {
             transparent: false,
+            scale: 1.0,
             window_size: (800.0, 800.0).into(),
             window_title: "Application".to_owned(),
             fullscreen: false,
@@ -65,7 +68,7 @@ impl Default for WindowProperties {
 /// The Context stores all UI state. A user of the library
 /// shouldn't have to interact with it directly.
 pub struct Context {
-    /// View informations
+    /// View information
     pub arena: Arena,
 
     /// Keyboard modifiers state
@@ -79,12 +82,6 @@ pub struct Context {
     pub(crate) keyboard_focused_id: Option<ViewId>,
 
     pub(crate) widgets_under_cursor: Vec<ViewId>,
-
-    /// Has the state changed?
-    pub(crate) dirty: bool,
-
-    /// Are we currently setting the dirty bit?
-    pub(crate) enable_dirty: bool,
 
     /// Lock the cursor in position. Useful for dragging knobs.
     pub(crate) grab_cursor: bool,
@@ -112,8 +109,6 @@ impl Context {
             key_press_status: HashMap::new(),
             keyboard_focused_id: None,
             widgets_under_cursor: vec![],
-            dirty: false,
-            enable_dirty: true,
             grab_cursor: false,
             prev_grab_cursor: false,
             state_map: HashMap::new(),
@@ -121,29 +116,25 @@ impl Context {
         }
     }
 
-    /// Redraw the UI using wgpu.
-    pub fn render(&mut self, view: &impl View, drawer: &mut Drawer) {}
+    /// Redraw the UI
+    pub fn render(&mut self, view: &impl View, drawer: &mut Drawer) {
+        view.draw(
+            drawer,
+            self,
+            Rect::from_origin_size((0.0, 0.0), self.window_properties.window_size()),
+        );
+    }
 
     /// Process a UI event.
     pub fn handle_event(
         &mut self,
-        view: &impl View,
+        view: &mut impl View,
         drawer_state: &mut DrawerState,
         event: &Event,
     ) {
-    }
-
-    fn set_dirty(&mut self) {
-        if self.enable_dirty {
-            self.dirty = true
-        }
-    }
-
-    fn clear_dirty(&mut self) {
-        self.dirty = false;
-        for holder in &mut self.state_map.values_mut() {
-            holder.dirty = false;
-        }
+        let mut actions = vec![];
+        view.handle_event(drawer_state, self, event, &mut actions);
+        // TODO handle actions
     }
 
     pub(crate) fn set_state<S: 'static>(&mut self, id: ViewId, value: S) {
@@ -187,8 +178,6 @@ impl Context {
     }
 
     pub fn get_mut<S: 'static>(&mut self, id: StateHandle<S>) -> &mut S {
-        self.set_dirty();
-
         let holder = self.state_map.get_mut(&id.id).unwrap();
         holder.dirty = true;
         holder.state.downcast_mut::<S>().unwrap()
@@ -220,16 +209,16 @@ pub trait View: private::Sealed + 'static {
     /// Builds an AccessKit tree. The node ID for the subtree is returned. All generated nodes are accumulated.
     fn access(
         &self,
-        ctx: &mut Context,
-        nodes: &mut Vec<(accesskit::NodeId, accesskit::Node)>,
+        _ctx: &mut Context,
+        _nodes: &mut Vec<(accesskit::NodeId, accesskit::Node)>,
     ) -> Option<accesskit::NodeId> {
         None
     }
 
-    /// Draws the view using vger.
+    /// Draws the view
     fn draw(&self, drawer: &mut Drawer, context: &mut Context, current_box: Rect);
 
-    /// For detecting flexible sized things in stacks.
+    /// For detecting flexible-sized things in stacks.
     fn is_flexible(&self) -> bool {
         false
     }
@@ -243,7 +232,13 @@ pub trait View: private::Sealed + 'static {
     fn max_size(&self) -> Size;
 
     /// Processes an event.
-    fn handle_event(&self, event: &Event, ctx: &mut Context, actions: &mut Vec<ApplicationAction>);
+    fn handle_event(
+        &mut self,
+        draw_state: &mut DrawerState,
+        ctx: &mut Context,
+        event: &Event,
+        actions: &mut Vec<ApplicationAction>,
+    );
 
     /// Returns the type ID of the underlying view.
     fn tid(&self) -> TypeId {

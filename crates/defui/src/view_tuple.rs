@@ -7,7 +7,7 @@ pub trait ViewTuple {
     fn len(&self) -> usize;
     fn is_empty(&self) -> bool {
         false
-    } // satisfy clippy
+    }
 }
 
 macro_rules! impl_view_tuple {

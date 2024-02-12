@@ -5,9 +5,10 @@ use std::{
     time::{Duration, Instant},
 };
 use winit::{
+    dpi::LogicalSize,
     event::{ElementState, Event as WEvent, MouseButton as WMouseButton, WindowEvent},
     event_loop::{ControlFlow, EventLoop, EventLoopProxy},
-    window::{Window, WindowBuilder},
+    window::WindowBuilder,
 };
 
 type WorkQueue = VecDeque<Box<dyn FnOnce(&mut Context) + Send>>;
@@ -33,14 +34,11 @@ pub fn on_main(f: impl FnOnce(&mut Context) + Send + 'static) {
     }
 }
 
-fn handle_event(
-    cx: &mut Context,
-    view: &impl View,
-    draw_state: &mut DrawerState,
-    event: &Event,
-    window: &Window,
-) {
+fn handle_event(cx: &mut Context, view: &mut impl View, event: &Event, env: &mut DrawerEnv) {
+    let draw_state = env.get_drawer_state();
     cx.handle_event(view, draw_state, event);
+
+    let window = env.window();
 
     if cx.grab_cursor && !cx.prev_grab_cursor {
         debug!("grabbing cursor");
@@ -65,14 +63,18 @@ fn handle_event(
 fn setup_context_and_env() {}
 
 /// Call this function to run your UI.
-pub fn rui(view: impl View) {
+pub fn run_view_winit(view: impl View) {
+    let mut view = view;
     let mut cx = Context::new();
 
     let event_loop = EventLoop::new().expect("Failed to create event loop");
 
     let winit_window_builder = WindowBuilder::new()
         .with_title(cx.window_properties.window_title())
-        .with_inner_size(cx.window_properties.window_size().into())
+        .with_inner_size(LogicalSize::new(
+            cx.window_properties.window_size.width,
+            cx.window_properties.window_size.height,
+        ))
         .with_transparent(true)
         .with_blur(true);
 
@@ -94,7 +96,7 @@ pub fn rui(view: impl View) {
         command_map.insert("", "");
     }
 
-    let mut access_nodes = vec![];
+    // let mut access_nodes = vec![];
 
     // let font_mgr = FontMgr::new();
     // let svg = r##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" height = "100" width = "100">
@@ -145,20 +147,25 @@ pub fn rui(view: impl View) {
                                     button,
                                     position: mouse_position,
                                 };
-                                process_event(&mut cx, &view, &event, env.window())
+                                handle_event(&mut cx, &mut view, &event, &mut env);
                             }
                             ElementState::Released => {
                                 let event = Event::MouseUnpress {
                                     button,
                                     position: mouse_position,
                                 };
-                                process_event(&mut cx, &view, &event, env.window())
+                                handle_event(&mut cx, &mut view, &event, &mut env);
                             }
                         };
                     }
                     WindowEvent::CursorMoved { position, .. } => {
-                        scale = env.window().scale_factor();
-                        mouse_position = (position.x / scale, (height - position.y) / scale).into();
+                        cx.window_properties.scale = env.window().scale_factor();
+                        mouse_position = (
+                            position.x / cx.window_properties.scale,
+                            (cx.window_properties.window_size.height - position.y)
+                                / cx.window_properties.scale,
+                        )
+                            .into();
                         // let event = Event::TouchMove {
                         //     id: 0,
                         //     position: mouse_position,
@@ -214,7 +221,7 @@ pub fn rui(view: impl View) {
                         delta: d,
                     };
 
-                    process_event(&mut cx, &view, &event, env.window());
+                    handle_event(&mut cx, &mut view, &event, &mut env);
                 }
                 _ => (),
             }
@@ -222,28 +229,13 @@ pub fn rui(view: impl View) {
                 draw_frame = true;
                 previous_frame_start = frame_start;
             }
-            let window_size = env.window().inner_size();
-            scale = env.window().scale_factor();
-            // println!("window_size: {:?}", window_size);
-            width = window_size.width as f64 / scale;
-            height = window_size.height as f64 / scale;
-            let draw_state = env.get_drawer_state();
-
-            if cx.update(&view, draw_state, &mut access_nodes, (width, height).into()) {
-                env.request_redraw();
-            }
-
-            if cx.window_title != window_title {
-                window_title = cx.window_title.clone();
-                env.window().set_title(&cx.window_title);
-            }
 
             if draw_frame {
                 env.prepare_draw();
                 let canvas = env.get_drawer();
                 let mut drawer = Drawer::new(canvas.0, canvas.1);
 
-                cx.render(&view, &mut drawer, (width, height).into(), scale);
+                cx.render(&view, &mut drawer);
                 env.draw();
             }
 
@@ -275,7 +267,7 @@ pub fn parse_url_query_string<'a>(query: &'a str, search_key: &str) -> Option<&'
 
 pub trait Run: View + Sized {
     fn run(self) {
-        rui(self)
+        run_view_winit(self)
     }
 }
 

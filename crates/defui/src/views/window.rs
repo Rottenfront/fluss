@@ -2,21 +2,22 @@ use crate::*;
 use std::any::Any;
 
 /// Struct for the `window_title` modifier.
-pub struct TitleView<V> {
+pub struct TitleView<V, B: Binding<V>> {
     child: V,
     title: String,
-    pos: Binding<WorldPoint>,
+    pos: B,
 }
 
-impl<V> TitleView<V>
+impl<V, B> TitleView<V, B>
 where
     V: View,
+    B: Binding<V>,
 {
     pub fn new(v: V, title: &str) -> Self {
         Self {
             child: v,
             title: title.into(),
-            pos: bind([0.0, 0.0].into()),
+            pos: bind((0.0, 0.0).into()),
         }
     }
 }
@@ -94,7 +95,7 @@ where
     }
 }
 
-impl<V> private::Sealed for TitleView<V> {}
+impl<V, B> private::Sealed for TitleView<V, B> where B: Binding<V> {}
 
 /// Struct for the `fullscreen` modifier.
 pub struct FullscreenView<V> {

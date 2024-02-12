@@ -5,19 +5,23 @@
 extern crate lazy_static;
 
 pub use kurbo::*;
+pub use log::debug;
 pub use trist::*;
 
 mod view;
 pub use view::*;
 
+mod views;
+pub use views::*;
+
 mod events;
 pub use events::*;
 
-mod viewid;
-pub use viewid::*;
+mod view_id;
+pub use view_id::*;
 
-mod viewtuple;
-pub use viewtuple::*;
+mod view_tuple;
+pub use view_tuple::*;
 
 mod lens;
 pub use lens::*;
@@ -40,10 +44,6 @@ pub use winit_event_loop::*;
 // See https://rust-lang.github.io/api-guidelines/future-proofing.html
 pub(crate) mod private {
     pub trait Sealed {}
-}
-
-macro_rules! debug {
-    () => {};
 }
 
 #[cfg(test)]

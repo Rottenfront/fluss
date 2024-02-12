@@ -30,15 +30,15 @@ pub fn align_v(child: Rect, parent: Rect, align: VAlignment) -> Vec2 {
     }
 }
 
-pub fn align(child: Rect, parent: Rect, halign: HAlignment, valign: VAlignment) -> Vec2 {
+pub fn align(child: Rect, parent: Rect, h_align: HAlignment, v_align: VAlignment) -> Vec2 {
     let c_off = parent.center() - child.center();
     (
-        match halign {
+        match h_align {
             HAlignment::Leading => parent.min_x() - child.min_x(),
             HAlignment::Center => c_off.x,
             HAlignment::Trailing => parent.max_x() - child.max_x(),
         },
-        match valign {
+        match v_align {
             VAlignment::Top => parent.max_y() - child.max_y(),
             VAlignment::Middle => c_off.y,
             VAlignment::Bottom => parent.min_y() - child.min_y(),

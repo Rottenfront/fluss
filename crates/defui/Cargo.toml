@@ -14,6 +14,7 @@ default = ["winit-backend"]
 winit-backend = ["winit"]
 
 [dependencies]
+log = "0.4"
 futures = "0.3"
 trist = { path = "../trist" }
 kurbo = { path = "../kurbo" }
@@ -28,6 +29,5 @@ flo_binding = "2"
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2.76"
 web-sys = { version = "^0.3.61", features = ["Location"] }
-log = "0.4"
 console_log = "1"
 console_error_panic_hook = "0.1.6"
