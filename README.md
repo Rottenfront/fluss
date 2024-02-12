@@ -61,17 +61,13 @@ also possible to add piet backend.
   - Appearance must be completely customizable
   - Planned:
     1. Creation and renaming files and folders
-    2. drag'n'drop for files and folders, main example VSCode
+    2. drag'n'drop for files and folders, main example is VSCode
     3. Code check and formatting in files and folders
 
-Language support priorities are Rust, C и C++.
-On the second place are TypeScript, Python, C#, Java и Kotlin.
+Language support priorities are Rust, C and C++.
+On the second place are TypeScript, Python, C#, Java and Kotlin.
 After implementing the main features of the editor, it is possible to support
 any language that has a server that supports LSP, and an implementation of the
 TreeSitter parser.
 
 Don't look at this project as a product until all these points are completed.
-
-There are also plans to support ChatGPT/Copilot or Codeium in the foreseeable
-future.
-If possible, CRDTs will be implemented for multi-user source code editing.
