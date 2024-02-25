@@ -1,0 +1,32 @@
+[package]
+name = "gcl"
+version = "0.10.1"
+authors = ["Raph Levien <raph.levien@gmail.com>", "Andre Rottenfront"]
+license = "MIT OR Apache-2.0 OR MPLv2"
+edition = "2021"
+rust-version = "1.65"
+keywords = ["graphics", "curve", "curves", "bezier", "geometry"]
+description = "A 2D geometry and curves library"
+
+[features]
+default = []
+serde = ["smallvec/serde", "dep:serde"]
+schemars = ["schemars/smallvec", "dep:schemars"]
+
+[dependencies]
+smallvec = "1.10"
+
+arrayvec = { version = "0.7.1", default-features = false }
+libm = { version = "0.2.6", optional = true }
+schemars = { version = "0.8.6", optional = true }
+serde = { version = "1.0.105", default-features = false, features = [
+    "alloc",
+    "derive",
+], optional = true }
+
+# This is used for research but not really needed; maybe refactor.
+[dev-dependencies]
+rand = "0.8.0"
+
+[target.'cfg(target_arch="wasm32")'.dev-dependencies]
+getrandom = { version = "0.2.0", features = ["js"] }

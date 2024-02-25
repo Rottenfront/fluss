@@ -3,10 +3,10 @@ use core_graphics_types::geometry::CGSize;
 use foreign_types_shared::{ForeignType, ForeignTypeRef};
 use metal::{CommandQueue, Device, MTLPixelFormat, MetalLayer};
 use objc::runtime::YES;
-use raw_window_handle::HasWindowHandle;
+use rwh06::HasWindowHandle;
 use skia_safe::{
     gpu::{self, mtl, BackendRenderTarget, DirectContext, SurfaceOrigin},
-    scalar, Canvas, ColorType, Size,
+    scalar, Canvas, ColorType, Size, Surface,
 };
 use winit::{
     dpi::PhysicalSize,
@@ -14,14 +14,18 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 
-pub struct SkiaEnv {
+use crate::*;
+
+pub struct DrawerEnv {
     window: Window,
     context: DirectContext,
     metal_layer: MetalLayer,
     command_queue: CommandQueue,
+    state: DrawerState,
+    drawable: Drawable,
 }
 
-impl super::SkiaBackend for SkiaEnv {
+impl<'a, 'b> TristBackend<DrawerState, Drawer<'a, 'b>> for DrawerEnv {
     fn new<T>(winit_window_builder: WindowBuilder, event_loop: &EventLoop<T>) -> Self {
         let window = winit_window_builder.build(&event_loop).unwrap();
 
@@ -45,7 +49,7 @@ impl super::SkiaBackend for SkiaEnv {
 
             unsafe {
                 let view = match raw_window_handle {
-                    raw_window_handle::RawWindowHandle::AppKit(appkit) => appkit.ns_view.as_ptr(),
+                    rwh06::RawWindowHandle::AppKit(appkit) => appkit.ns_view.as_ptr(),
                     _ => panic!("Wrong window handle type"),
                 } as cocoa_id;
                 // view.setTitlebarAppearsTransparent_(NO);
@@ -73,6 +77,8 @@ impl super::SkiaBackend for SkiaEnv {
             metal_layer,
             context,
             command_queue,
+            surface: None,
+            state: DrawerState::new(),
         }
     }
 
@@ -85,14 +91,18 @@ impl super::SkiaBackend for SkiaEnv {
         self.window.request_redraw();
     }
 
-    fn draw<F: FnOnce(&Canvas)>(&mut self, draw_func: F) {
+    fn get_drawer_state(&mut self) -> &mut DrawerState {
+        &mut self.state
+    }
+
+    fn draw<F: FnOnce(&mut Drawer<'a, 'b>)>(&mut self, draw_func: F) {
         if let Some(drawable) = self.metal_layer.next_drawable() {
             let drawable_size = {
                 let size = self.metal_layer.drawable_size();
                 Size::new(size.width as scalar, size.height as scalar)
             };
 
-            let mut surface = unsafe {
+            self.surface = unsafe {
                 let texture_info =
                     mtl::TextureInfo::new(drawable.texture().as_ptr() as mtl::Handle);
 
@@ -109,13 +119,14 @@ impl super::SkiaBackend for SkiaEnv {
                     None,
                     None,
                 )
-                .unwrap()
             };
+            let mut drawer = Drawer::new(canvas, &mut self.state);
 
-            draw_func(surface.canvas());
+            draw_func(&mut drawer);
+
+            drop(drawer);
 
             self.context.flush_and_submit();
-            drop(surface);
 
             let command_buffer = self.command_queue.new_command_buffer();
             command_buffer.present_drawable(drawable);
