@@ -47,7 +47,7 @@ fn create_surface(
 pub struct SkiaEnv {
     surface: Surface,
     gl_surface: GlutinSurface<WindowSurface>,
-    gr_context: skia_safe::gpu::DirectContext,
+    gr_context: gpu::DirectContext,
     gl_context: PossiblyCurrentContext,
     window: Window,
     fb_info: FramebufferInfo,

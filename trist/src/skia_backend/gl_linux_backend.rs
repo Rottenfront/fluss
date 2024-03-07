@@ -8,7 +8,7 @@ use glutin::{
 };
 use glutin_winit::DisplayBuilder;
 use rwh05::HasRawWindowHandle;
-use skia_gl::{
+use skia_gl_linux::{
     gpu::{self, backend_render_targets, gl::FramebufferInfo, SurfaceOrigin},
     Canvas, ColorType, Surface,
 };

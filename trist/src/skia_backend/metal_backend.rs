@@ -25,7 +25,7 @@ pub struct DrawerEnv {
     drawable: Drawable,
 }
 
-impl<'a, 'b> TristBackend<DrawerState, Drawer<'a, 'b>> for DrawerEnv {
+impl DrawerEnv {
     fn new<T>(winit_window_builder: WindowBuilder, event_loop: &EventLoop<T>) -> Self {
         let window = winit_window_builder.build(&event_loop).unwrap();
 

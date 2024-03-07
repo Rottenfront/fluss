@@ -1,17 +1,66 @@
+#[cfg(feature = "opengl")]
 mod gl_backend;
+#[cfg(feature = "opengl")]
 pub use gl_backend::DrawerEnv;
-
-use gcl::{RRect, Shape, TranslateScale, Vec2};
-use skia_safe::{
+#[cfg(feature = "opengl")]
+use skia_gl::{
     font_style::{Slant as SSlant, Weight as SWeight, Width as SWidth},
-    Font as SFont, FontMgr as SFontMgr, FontStyle as SFontStyle, Paint as SPaint, Path as SPath,
-    RRect as SRRect, Rect as SRect, Vector as SVector,
+    Canvas as SCanvas, ClipOp as SClipOp, Color4f as SColor4f, Font as SFont, FontMgr as SFontMgr,
+    FontStyle as SFontStyle, Paint as SPaint, Path as SPath, RRect as SRRect, Rect as SRect,
+    TextBlob as STextBlob, Vector as SVector,
 };
+
+#[cfg(feature = "opengl-linux")]
+mod gl_linux_backend;
+#[cfg(feature = "opengl-linux")]
+pub use gl_linux_backend::DrawerEnv;
+#[cfg(feature = "opengl-linux")]
+use skia_gl_linux::{
+    font_style::{Slant as SSlant, Weight as SWeight, Width as SWidth},
+    Canvas as SCanvas, ClipOp as SClipOp, Color4f as SColor4f, Font as SFont, FontMgr as SFontMgr,
+    FontStyle as SFontStyle, Paint as SPaint, Path as SPath, RRect as SRRect, Rect as SRect,
+    TextBlob as STextBlob, Vector as SVector,
+};
+
+#[cfg(feature = "metal")]
+mod metal_backend;
+#[cfg(feature = "metal")]
+pub use metal_backend::DrawerEnv;
+#[cfg(feature = "metal")]
+use skia_metal::{
+    font_style::{Slant as SSlant, Weight as SWeight, Width as SWidth},
+    Canvas as SCanvas, ClipOp as SClipOp, Color4f as SColor4f, Font as SFont, FontMgr as SFontMgr,
+    FontStyle as SFontStyle, Paint as SPaint, Path as SPath, RRect as SRRect, Rect as SRect,
+    TextBlob as STextBlob, Vector as SVector,
+};
+
+#[cfg(feature = "directx")]
+mod d3d_backend;
+#[cfg(feature = "directx")]
+pub use d3d_backend::DrawerEnv;
+#[cfg(feature = "directx")]
+use skia_d3d::{
+    font_style::{Slant as SSlant, Weight as SWeight, Width as SWidth},
+    Canvas as SCanvas, ClipOp as SClipOp, Color4f as SColor4f, Font as SFont, FontMgr as SFontMgr,
+    FontStyle as SFontStyle, Paint as SPaint, Path as SPath, RRect as SRRect, Rect as SRect,
+    TextBlob as STextBlob, Vector as SVector,
+};
+
+#[cfg(feature = "vulkan")]
+mod vulkan_backend;
+#[cfg(feature = "vulkan")]
+use skia_vulkan::{
+    font_style::{Slant as SSlant, Weight as SWeight, Width as SWidth},
+    Canvas as SCanvas, ClipOp as SClipOp, Color4f as SColor4f, Font as SFont, FontMgr as SFontMgr,
+    FontStyle as SFontStyle, Paint as SPaint, Path as SPath, RRect as SRRect, Rect as SRect,
+    TextBlob as STextBlob, Vector as SVector,
+};
+#[cfg(feature = "vulkan")]
+pub use vulkan_backend::DrawerEnv;
+
 use std::collections::HashMap;
 
-use crate::{
-    Color, DrawerError, Font, FontId, Paint, PaintId, TristDrawer, TristDrawerState, Weight, Width,
-};
+use crate::*;
 
 pub struct DrawerState {
     fast_paints: HashMap<usize, SPaint>,
@@ -163,7 +212,7 @@ impl TristDrawerState for DrawerState {
 }
 
 pub struct Drawer<'a, 'b> {
-    canvas: &'a skia_safe::Canvas,
+    canvas: &'a SCanvas,
     state: &'b mut DrawerState,
     current_translate: TranslateScale,
 }
@@ -210,10 +259,7 @@ fn get_skia_rect(rect: &RRect) -> SRRect {
 
 fn get_skia_paint(paint: Paint) -> SPaint {
     match paint {
-        Paint::Color(color) => SPaint::new(
-            skia_safe::Color4f::new(color.r, color.g, color.b, color.a),
-            None,
-        ),
+        Paint::Color(color) => SPaint::new(SColor4f::new(color.r, color.g, color.b, color.a), None),
     }
 }
 
@@ -255,7 +301,7 @@ fn get_text_wraps(text: &str, font: &SFont, max_width: Option<f64>) -> (Vec<usiz
 }
 
 impl<'a, 'b> Drawer<'a, 'b> {
-    pub fn new(canvas: &'a skia_safe::Canvas, state: &'b mut DrawerState) -> Self {
+    pub fn new(canvas: &'a SCanvas, state: &'b mut DrawerState) -> Self {
         Self {
             canvas,
             state,
@@ -267,7 +313,7 @@ impl<'a, 'b> Drawer<'a, 'b> {
 impl<'a, 'b> TristDrawer<DrawerState> for Drawer<'a, 'b> {
     fn clear(&mut self, color: Color) {
         self.canvas
-            .clear(skia_safe::Color4f::new(color.r, color.g, color.b, color.a));
+            .clear(SColor4f::new(color.r, color.g, color.b, color.a));
     }
 
     fn save(&mut self) {
@@ -290,12 +336,12 @@ impl<'a, 'b> TristDrawer<DrawerState> for Drawer<'a, 'b> {
 
     fn clip_shape(&mut self, shape: &impl Shape) {
         self.canvas
-            .clip_path(&get_skia_path(shape), skia_safe::ClipOp::Intersect, true);
+            .clip_path(&get_skia_path(shape), SClipOp::Intersect, true);
     }
 
     fn clip_rect(&mut self, rect: &RRect) {
         self.canvas
-            .clip_rrect(&get_skia_rect(rect), skia_safe::ClipOp::Intersect, true);
+            .clip_rrect(&get_skia_rect(rect), SClipOp::Intersect, true);
     }
 
     fn draw_shape(&mut self, shape: &impl Shape, paint: PaintId) {
@@ -340,7 +386,7 @@ impl<'a, 'b> TristDrawer<DrawerState> for Drawer<'a, 'b> {
             None => {}
             Some(sk_font) => {
                 self.canvas.draw_text_blob(
-                    match skia_safe::TextBlob::new(
+                    match STextBlob::new(
                         text,
                         match &sk_font.with_size(size as f32) {
                             None => return,

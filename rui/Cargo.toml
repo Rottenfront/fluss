@@ -12,7 +12,7 @@ edition = "2021"
 default = ["winit"]
 
 [dependencies]
-kurbo = { path = "../kurbo" }
+gcl = { path = "../gcl" }
 futures = "0.3"
 trist = { path = "../trist" }
 accesskit = "0.11.0"

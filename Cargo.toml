@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/trist", ".", "crates/rui"]
+members = ["trist", ".", "defui", "gcl"]
 
 [package]
 name = "fluss"

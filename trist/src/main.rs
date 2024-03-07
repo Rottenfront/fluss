@@ -1,13 +1,21 @@
 use std::time::{Duration, Instant};
 use trist::*;
-use winit::{
+#[cfg(feature = "opengl")]
+use winit_rwh05::{
+    dpi::LogicalSize,
+    event::{Event, WindowEvent},
+    event_loop::{ControlFlow, EventLoop},
+    window::WindowBuilder,
+};
+#[cfg(not(feature = "opengl"))]
+use winit_rwh06::{
     dpi::LogicalSize,
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
 
-#[cfg(feature = "skia")]
+#[cfg(feature = "opengl")]
 fn main() {
     static EXPECTED_FRAME_DURATION: f32 = 1.0 / 60.0;
     let el = EventLoop::new().expect("Failed to create event loop");

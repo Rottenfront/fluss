@@ -1,11 +1,8 @@
-#[cfg(feature = "skia")]
 mod skia_backend;
 
-#[cfg(feature = "skia")]
-pub use skia_backend::{Drawer, DrawerEnv, DrawerState};
+pub use skia_backend::*;
 
 pub use gcl::*;
-use winit::{dpi::PhysicalSize, event_loop::EventLoop, window::Window};
 
 #[derive(PartialEq, PartialOrd, Eq, Ord, Hash, Clone, Copy, Debug)]
 pub struct PaintId {
@@ -270,18 +267,6 @@ pub trait TristDrawer<T: TristDrawerState> {
     fn state(&mut self) -> &mut DrawerState;
 
     fn current_transform(&self) -> TranslateScale;
-}
-
-#[cfg(feature = "skia")]
-pub trait TristBackend<S: TristDrawerState, T: TristDrawer<S>> {
-    fn new<E>(window: winit::window::WindowBuilder, event_loop: &EventLoop<E>) -> Self;
-    fn on_resize(&mut self, size: PhysicalSize<u32>);
-    fn request_redraw(&mut self);
-    fn get_drawer_state(&mut self) -> &mut S;
-    fn prepare_draw(&mut self);
-    fn get_drawer(&mut self) -> T;
-    fn draw(&mut self);
-    fn window(&mut self) -> &mut Window;
 }
 
 pub const FALLBACK_SERIF_FONT: FontId = FontId { id: 0 };
