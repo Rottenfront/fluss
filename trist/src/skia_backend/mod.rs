@@ -73,14 +73,42 @@ pub struct DrawerState {
 
 impl DrawerState {
     pub fn new() -> Self {
-        Self {
+        let mut state = Self {
             fast_paints: HashMap::new(),
             static_paints: HashMap::new(),
             last_fast_paint_id: 0,
             last_static_paint_id: 0,
             fonts: HashMap::new(),
-            last_font_id: 0,
-        }
+            last_font_id: FALLBACK_SERIF_FONT.id.max(FALLBACK_MONOSPACE_FONT.id) + 1,
+        };
+
+        state.fonts.insert(
+            FALLBACK_SERIF_FONT.id,
+            SFont::new(
+                SFontMgr::new()
+                    .match_family_style(
+                        "sans",
+                        SFontStyle::new(SWeight::NORMAL, SWidth::NORMAL, SSlant::Upright),
+                    )
+                    .unwrap(),
+                13.0,
+            ),
+        );
+
+        state.fonts.insert(
+            FALLBACK_MONOSPACE_FONT.id,
+            SFont::new(
+                SFontMgr::new()
+                    .match_family_style(
+                        "monospace",
+                        SFontStyle::new(SWeight::NORMAL, SWidth::NORMAL, SSlant::Upright),
+                    )
+                    .unwrap(),
+                13.0,
+            ),
+        );
+
+        state
     }
 
     pub fn clear(&mut self) {

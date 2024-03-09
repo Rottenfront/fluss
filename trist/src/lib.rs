@@ -1,3 +1,8 @@
+#[cfg(any(feature = "opengl", feature = "opengl-linux"))]
+pub use winit_rwh05 as winit;
+#[cfg(not(any(feature = "opengl", feature = "opengl-linux")))]
+pub use winit_rwh06 as winit;
+
 mod skia_backend;
 
 pub use skia_backend::*;

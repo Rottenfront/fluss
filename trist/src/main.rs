@@ -1,13 +1,13 @@
 use std::time::{Duration, Instant};
 use trist::*;
-#[cfg(feature = "opengl")]
+#[cfg(any(feature = "opengl", feature = "opengl-linux"))]
 use winit_rwh05::{
     dpi::LogicalSize,
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
-#[cfg(not(feature = "opengl"))]
+#[cfg(not(any(feature = "opengl", feature = "opengl-linux")))]
 use winit_rwh06::{
     dpi::LogicalSize,
     event::{Event, WindowEvent},
@@ -15,7 +15,7 @@ use winit_rwh06::{
     window::WindowBuilder,
 };
 
-#[cfg(feature = "opengl")]
+#[cfg(any(feature = "opengl", feature = "opengl-linux"))]
 fn main() {
     static EXPECTED_FRAME_DURATION: f32 = 1.0 / 60.0;
     let el = EventLoop::new().expect("Failed to create event loop");
@@ -37,16 +37,6 @@ fn main() {
 
     let mut previous_frame_start = Instant::now();
     let frame_duration = Duration::from_secs_f32(EXPECTED_FRAME_DURATION);
-
-    let state = env.get_drawer_state();
-    let font = state
-        .create_font(Font {
-            name: "CaskaydiaCove Nerd Font".to_string(),
-            size: 13.0,
-            weight: Weight::Normal,
-            width: Width::Normal,
-        })
-        .unwrap();
 
     el.run(move |event, window_target| {
         let frame_start = Instant::now();
@@ -99,7 +89,14 @@ fn main() {
                 }))
                 .unwrap();
             drawer.draw_shape(&gcl::Circle::new((100.0, 100.0), 100.0), black);
-            drawer.draw_text("chlen", (100.0, 100.0).into(), None, 13.0, font, white);
+            drawer.draw_text(
+                "chlen",
+                (100.0, 100.0).into(),
+                None,
+                13.0,
+                FALLBACK_MONOSPACE_FONT,
+                white,
+            );
             drop(drawer);
             env.draw();
         }
