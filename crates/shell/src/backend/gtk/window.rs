@@ -427,7 +427,7 @@ impl WindowBuilder {
             .connect_enter_notify_event(|widget, _| {
                 widget.grab_focus();
 
-                gtk::glib::Propagation::Stop
+                Inhibit(true)
             });
 
         // Set the minimum size
@@ -539,7 +539,7 @@ impl WindowBuilder {
                 }
             }
 
-            gtk::glib::Propagation::Proceed
+            Inhibit(false)
         }));
 
         win_state.drawing_area.connect_screen_changed(
@@ -595,7 +595,7 @@ impl WindowBuilder {
                 });
             }
 
-            gtk::glib::Propagation::Stop
+            Inhibit(true)
         }));
 
         win_state.drawing_area.connect_button_release_event(clone!(handle => move |_widget, event| {
@@ -622,7 +622,7 @@ impl WindowBuilder {
                 });
             }
 
-            gtk::glib::Propagation::Stop
+            Inhibit(true)
         }));
 
         win_state.drawing_area.connect_motion_notify_event(
@@ -643,7 +643,7 @@ impl WindowBuilder {
                     state.with_handler(|h| h.mouse_move(&mouse_event));
                 }
 
-                gtk::glib::Propagation::Stop
+                Inhibit(true)
             }),
         );
 
@@ -653,7 +653,7 @@ impl WindowBuilder {
                     state.with_handler(|h| h.mouse_leave());
                 }
 
-                gtk::glib::Propagation::Stop
+                Inhibit(true)
             }),
         );
 
@@ -709,7 +709,7 @@ impl WindowBuilder {
                     }
                 }
 
-                gtk::glib::Propagation::Stop
+                Inhibit(true)
             }));
 
         win_state
@@ -727,7 +727,7 @@ impl WindowBuilder {
                     );
                 }
 
-                gtk::glib::Propagation::Stop
+                Inhibit(true)
             }));
 
         win_state
@@ -745,7 +745,7 @@ impl WindowBuilder {
                     );
                 }
 
-                gtk::glib::Propagation::Stop
+                Inhibit(true)
             }));
 
         win_state
@@ -754,7 +754,7 @@ impl WindowBuilder {
                 if let Some(state) = handle.state.upgrade() {
                     state.with_handler(|h| h.got_focus());
                 }
-                gtk::glib::Propagation::Stop
+                Inhibit(true)
             }));
 
         win_state
@@ -763,7 +763,7 @@ impl WindowBuilder {
                 if let Some(state) = handle.state.upgrade() {
                     state.with_handler(|h| h.lost_focus());
                 }
-                gtk::glib::Propagation::Stop
+                Inhibit(true)
             }));
 
         win_state
@@ -771,13 +771,9 @@ impl WindowBuilder {
             .connect_delete_event(clone!(handle => move |_widget, _ev| {
                 if let Some(state) = handle.state.upgrade() {
                     state.with_handler(|h| h.request_close());
-                    if state.closing.get() {
-                        gtk::glib::Propagation::Stop
-                    } else {
-                        gtk::glib::Propagation::Proceed
-                    }
+                    Inhibit(!state.closing.get())
                 } else {
-                    gtk::glib::Propagation::Proceed
+                    Inhibit(false)
                 }
             }));
 

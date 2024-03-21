@@ -14,10 +14,10 @@
 
 //! GTK implementation of features at the application scope.
 
-use gtk::gio::{prelude::ApplicationExtManual, ApplicationFlags, Cancellable};
-use gtk::Application as GtkApplication;
+use gtk_rs::gio::{prelude::ApplicationExtManual, ApplicationFlags, Cancellable};
+use gtk_rs::Application as GtkApplication;
 
-use gtk::prelude::{ApplicationExt, GtkApplicationExt};
+use gtk_rs::prelude::{ApplicationExt, GtkApplicationExt};
 
 use crate::application::AppHandler;
 

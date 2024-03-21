@@ -67,6 +67,7 @@ impl WinHandler for InvalidateTest {
     }
 
     fn paint(&mut self, piet: &mut Piet, region: &Region) {
+        // piet.clear(Rect::from_origin_size((0.0, 0.0), self.size), self.color);
         // We can ask to draw something bigger than our rect, but things outside
         // the invalidation region won't draw. (So they'll draw if and only if
         // they intersect the cursor's invalidated region or the rect that we

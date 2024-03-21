@@ -1,71 +1,71 @@
 [workspace]
 members = [
     ".",
-    "crates/piet*",
-    "crates/kurbo",
+    # "crates/piet*",
+    # "crates/kurbo",
     "crates/shell",
-    "crates/gtk/cairo",
-    "crates/gtk/cairo/sys",
-    "crates/gtk/gdk-pixbuf",
-    "crates/gtk/gdk-pixbuf/sys",
-    "crates/gtk/gio",
-    "crates/gtk/gio/sys",
-    "crates/gtk/glib-build-tools",
-    "crates/gtk/glib",
-    "crates/gtk/glib/gobject-sys",
-    "crates/gtk/glib/sys",
-    "crates/gtk/glib-macros",
-    "crates/gtk/graphene",
-    "crates/gtk/graphene/sys",
-    "crates/gtk/pango",
-    "crates/gtk/pango/sys",
-    "crates/gtk/pangocairo",
-    "crates/gtk/pangocairo/sys",
-    "crates/gtk/atk",
-    "crates/gtk/atk/sys",
-    "crates/gtk/gdk",
-    "crates/gtk/gdk/sys",
-    "crates/gtk/gdkwayland",
-    "crates/gtk/gdkwayland/sys",
-    "crates/gtk/gdkx11",
-    "crates/gtk/gdkx11/sys",
-    "crates/gtk/gtk",
-    "crates/gtk/gtk/sys",
-    "crates/gtk/gtk3-macros",
+    # "crates/gtk/cairo",
+    # "crates/gtk/cairo/sys",
+    # "crates/gtk/gdk-pixbuf",
+    # "crates/gtk/gdk-pixbuf/sys",
+    # "crates/gtk/gio",
+    # "crates/gtk/gio/sys",
+    # "crates/gtk/glib-build-tools",
+    # "crates/gtk/glib",
+    # "crates/gtk/glib/gobject-sys",
+    # "crates/gtk/glib/sys",
+    # "crates/gtk/glib-macros",
+    # "crates/gtk/graphene",
+    # "crates/gtk/graphene/sys",
+    # "crates/gtk/pango",
+    # "crates/gtk/pango/sys",
+    # "crates/gtk/pangocairo",
+    # "crates/gtk/pangocairo/sys",
+    # "crates/gtk/atk",
+    # "crates/gtk/atk/sys",
+    # "crates/gtk/gdk",
+    # "crates/gtk/gdk/sys",
+    # "crates/gtk/gdkwayland",
+    # "crates/gtk/gdkwayland/sys",
+    # "crates/gtk/gdkx11",
+    # "crates/gtk/gdkx11/sys",
+    # "crates/gtk/gtk",
+    # "crates/gtk/gtk/sys",
+    # "crates/gtk/gtk3-macros",
 ]
 
 [workspace.dependencies]
 libc = "0.2"
 bitflags = "2.4"
 thiserror = "1"
-gir-format-check = "^0.1"
-atk = { path = "crates/gtk/atk" }
-atk-sys = { path = "crates/gtk/atk/sys" }
-cairo = { path = "crates/gtk/cairo" }
-cairo-sys = { path = "crates/gtk/cairo/sys" }
-gdk = { path = "crates/gtk/gdk" }
-gdk-sys = { path = "crates/gtk/gdk/sys" }
-gdk-pixbuf = { path = "crates/gtk/gdk-pixbuf" }
-gdk-pixbuf-sys = { path = "crates/gtk/gdk-pixbuf/sys" }
-gdkwayland = { path = "crates/gtk/gdkwayland" }
-gdkwayland-sys = { path = "crates/gtk/gdkwayland/sys" }
-gdkx11 = { path = "crates/gtk/gdkx11" }
-gdkx11-sys = { path = "crates/gtk/gdkx11/sys" }
-gio = { path = "crates/gtk/gio" }
-gio-sys = { path = "crates/gtk/gio/sys" }
-gir = { path = "crates/gtk/gir" }
-glib = { path = "crates/gtk/glib" }
-gobject-sys = { path = "crates/gtk/glib/gobject-sys" }
-glib-sys = { path = "crates/gtk/glib/sys" }
-graphene = { path = "crates/gtk/graphene" }
-graphene-sys = { path = "crates/gtk/graphene/sys" }
-gtk = { path = "crates/gtk/gtk" }
-gtk-sys = { path = "crates/gtk/gtk/sys" }
-pango = { path = "crates/gtk/pango" }
-pango-sys = { path = "crates/gtk/pango/sys" }
-pangocairo = { path = "crates/gtk/pangocairo" }
-pangocairo-sys = { path = "crates/gtk/pangocairo/sys" }
-glib-macros = { path = "crates/gtk/glib-macros" }
+# gir-format-check = "^0.1"
+# atk = { path = "crates/gtk/atk" }
+# atk-sys = { path = "crates/gtk/atk/sys" }
+# cairo = { path = "crates/gtk/cairo" }
+# cairo-sys = { path = "crates/gtk/cairo/sys" }
+# gdk = { path = "crates/gtk/gdk" }
+# gdk-sys = { path = "crates/gtk/gdk/sys" }
+# gdk-pixbuf = { path = "crates/gtk/gdk-pixbuf" }
+# gdk-pixbuf-sys = { path = "crates/gtk/gdk-pixbuf/sys" }
+# gdkwayland = { path = "crates/gtk/gdkwayland" }
+# gdkwayland-sys = { path = "crates/gtk/gdkwayland/sys" }
+# gdkx11 = { path = "crates/gtk/gdkx11" }
+# gdkx11-sys = { path = "crates/gtk/gdkx11/sys" }
+# gio = { path = "crates/gtk/gio" }
+# gio-sys = { path = "crates/gtk/gio/sys" }
+# gir = { path = "crates/gtk/gir" }
+# glib = { path = "crates/gtk/glib" }
+# gobject-sys = { path = "crates/gtk/glib/gobject-sys" }
+# glib-sys = { path = "crates/gtk/glib/sys" }
+# graphene = { path = "crates/gtk/graphene" }
+# graphene-sys = { path = "crates/gtk/graphene/sys" }
+# gtk = { path = "crates/gtk/gtk" }
+# gtk-sys = { path = "crates/gtk/gtk/sys" }
+# pango = { path = "crates/gtk/pango" }
+# pango-sys = { path = "crates/gtk/pango/sys" }
+# pangocairo = { path = "crates/gtk/pangocairo" }
+# pangocairo-sys = { path = "crates/gtk/pangocairo/sys" }
+# glib-macros = { path = "crates/gtk/glib-macros" }
 
 [package]
 name = "fluss"

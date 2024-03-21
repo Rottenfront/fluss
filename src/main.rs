@@ -304,6 +304,7 @@ impl View for Stack {
                         None => continue,
                         Some(view) => view,
                     };
+                    drawer.save();
                     drawer.transform(Affine::translate((0.0, current_offset)));
                     view.draw(id, drawer, Size::new(max_size.width, height), ctx);
                     current_offset += height;
@@ -319,6 +320,7 @@ impl View for Stack {
                         None => continue,
                         Some(view) => view,
                     };
+                    drawer.save();
                     drawer.transform(Affine::translate((current_offset, 0.0)));
                     view.draw(id, drawer, Size::new(width, max_size.height), ctx);
                     current_offset += width;
@@ -515,7 +517,7 @@ fn main() {
                 ctx.push_view(Stack::zstack(bind(vec![first, txt])))
             };
 
-            Stack::hstack(bind(vec![second, first, third]))
+            Stack::hstack(bind(vec![first, second, third]))
         },
         bind("wtf".to_string()),
     )
