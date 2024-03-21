@@ -1,0 +1,44 @@
+[package]
+build = "build.rs"
+description = "FFI bindings to libgdk_pixbuf-2.0"
+keywords = ["gdk-pixbuf", "ffi", "gtk-rs", "gnome"]
+name = "gdk-pixbuf-sys"
+homepage = "https://gtk-rs.org/"
+authors = ["The gtk-rs Project Developers"]
+version = "0.20.0"
+repository = "https://github.com/gtk-rs/gtk-rs-core"
+license = "MIT"
+edition = "2021"
+rust-version = "1.70"
+
+[build-dependencies]
+system-deps = "6"
+
+[dependencies]
+libc.workspace = true
+gio-sys.workspace = true
+glib-sys.workspace = true
+gobject-sys.workspace = true
+
+[dev-dependencies]
+shell-words = "1.0.0"
+tempfile = "3"
+
+[features]
+v2_40 = []
+v2_42 = ["v2_40"]
+
+[package.metadata.system-deps.gdk_pixbuf_2_0]
+name = "gdk-pixbuf-2.0"
+version = "2.36.8"
+
+[package.metadata.system-deps.gdk_pixbuf_2_0.v2_40]
+version = "2.40"
+
+[package.metadata.system-deps.gdk_pixbuf_2_0.v2_42]
+version = "2.42"
+
+[package.metadata.docs.rs]
+rustc-args = ["--cfg", "docsrs"]
+rustdoc-args = ["--cfg", "docsrs", "--generate-link-to-definition"]
+all-features = true

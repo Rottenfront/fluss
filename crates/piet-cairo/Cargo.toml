@@ -13,16 +13,18 @@ categories = ["rendering::graphics-api"]
 [dependencies]
 piet = { version = "=0.6.2", path = "../piet" }
 
-cairo-rs = { version = "0.19.0", default-features = false } # We don't need glib
-pango = { version = "0.19.0", features = ["v1_44"] }
-pangocairo = "0.19.0"
+cairo = { workspace = true, default-features = false } # We don't need glib
+pango = { workspace = true, features = ["v1_44"] }
+pangocairo.workspace = true
 unicode-segmentation = "1.10.0"
 xi-unicode = "0.3.0"
 
 [dev-dependencies]
 piet = { version = "=0.6.2", path = "../piet", features = ["samples"] }
-piet-common = { version = "=0.6.2", path = "../piet-common", features = ["png"] }
-criterion = "0.3.6"
+piet-common = { version = "=0.6.2", path = "../piet-common", features = [
+    "png",
+] }
+criterion = "0.5"
 
 [[bench]]
 name = "make_image"

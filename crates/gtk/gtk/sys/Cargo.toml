@@ -1,0 +1,67 @@
+[package]
+name = "gtk-sys"
+version = "0.19.0"
+links = "gtk-3"
+build = "build.rs"
+authors = ["The gtk-rs Project Developers"]
+description = "FFI bindings to libgtk-3"
+homepage = "https://gtk-rs.org/"
+keywords = ["gtk", "ffi", "gtk-rs", "gnome"]
+license = "MIT"
+repository = "https://github.com/gtk-rs/gtk3-rs"
+edition = "2021"
+rust-version = "1.70"
+
+[features]
+v3_24 = []
+v3_24_8 = ["v3_24_1"]
+v3_24_9 = ["v3_24_8"]
+v3_24_11 = ["v3_24_9"]
+v3_24_30 = ["v3_24_11"]
+v3_24_1 = ["v3_24"]
+
+[dependencies]
+libc.workspace = true
+glib-sys.workspace = true
+gobject-sys.workspace = true
+gio-sys.workspace = true
+atk-sys.workspace = true
+gdk-pixbuf-sys.workspace = true
+gdk-sys.workspace = true
+pango-sys.workspace = true
+cairo-sys.workspace = true
+
+[build-dependencies]
+system-deps = "6"
+
+[dev-dependencies]
+shell-words = "1.0.0"
+tempfile = "3"
+
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--cfg", "docsrs"]
+features = []
+rustc-args = ["--cfg", "docsrs"]
+
+[package.metadata.system-deps."gtk+_3_0"]
+name = "gtk+-3.0"
+version = "3.22"
+
+[package.metadata.system-deps."gtk+_3_0".v3_24]
+version = "3.24"
+
+[package.metadata.system-deps."gtk+_3_0".v3_24_1]
+version = "3.24.1"
+
+[package.metadata.system-deps."gtk+_3_0".v3_24_8]
+version = "3.24.8"
+
+[package.metadata.system-deps."gtk+_3_0".v3_24_9]
+version = "3.24.9"
+
+[package.metadata.system-deps."gtk+_3_0".v3_24_11]
+version = "3.24.11"
+
+[package.metadata.system-deps."gtk+_3_0".v3_24_30]
+version = "3.24.30"

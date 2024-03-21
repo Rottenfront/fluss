@@ -15,10 +15,10 @@
 //! GTK implementation of menus.
 
 use gtk::gdk::ModifierType;
+use gtk::SeparatorMenuItem;
 use gtk::{
     AccelGroup, CheckMenuItem, Menu as GtkMenu, MenuBar as GtkMenuBar, MenuItem as GtkMenuItem,
 };
-use gtk_rs::SeparatorMenuItem;
 
 use gtk::prelude::{GtkMenuExt, GtkMenuItemExt, MenuShellExt, WidgetExt};
 

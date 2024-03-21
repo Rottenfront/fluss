@@ -427,7 +427,7 @@ impl WindowBuilder {
             .connect_enter_notify_event(|widget, _| {
                 widget.grab_focus();
 
-                Inhibit(true)
+                gtk::glib::Propagation::Stop
             });
 
         // Set the minimum size
@@ -528,7 +528,7 @@ impl WindowBuilder {
                         // Copy the entire surface to the drawing area (not just the invalid
                         // region, because there might be parts of the drawing area that were
                         // invalidated by external forces).
-                       // TODO: how are we supposed to handle these errors? What can we do besides panic? Probably nothing right?
+                        // TODO: how are we supposed to handle these errors? What can we do besides panic? Probably nothing right?
                         let alloc = widget.allocation();
                         context.set_source_surface(surface, 0.0, 0.0).unwrap();
                         context.rectangle(0.0, 0.0, alloc.width() as f64, alloc.height() as f64);
@@ -539,7 +539,7 @@ impl WindowBuilder {
                 }
             }
 
-            Inhibit(false)
+            gtk::glib::Propagation::Proceed
         }));
 
         win_state.drawing_area.connect_screen_changed(
@@ -595,7 +595,7 @@ impl WindowBuilder {
                 });
             }
 
-            Inhibit(true)
+            gtk::glib::Propagation::Stop
         }));
 
         win_state.drawing_area.connect_button_release_event(clone!(handle => move |_widget, event| {
@@ -622,7 +622,7 @@ impl WindowBuilder {
                 });
             }
 
-            Inhibit(true)
+            gtk::glib::Propagation::Stop
         }));
 
         win_state.drawing_area.connect_motion_notify_event(
@@ -643,7 +643,7 @@ impl WindowBuilder {
                     state.with_handler(|h| h.mouse_move(&mouse_event));
                 }
 
-                Inhibit(true)
+                gtk::glib::Propagation::Stop
             }),
         );
 
@@ -653,7 +653,7 @@ impl WindowBuilder {
                     state.with_handler(|h| h.mouse_leave());
                 }
 
-                Inhibit(true)
+                gtk::glib::Propagation::Stop
             }),
         );
 
@@ -709,7 +709,7 @@ impl WindowBuilder {
                     }
                 }
 
-                Inhibit(true)
+                gtk::glib::Propagation::Stop
             }));
 
         win_state
@@ -727,7 +727,7 @@ impl WindowBuilder {
                     );
                 }
 
-                Inhibit(true)
+                gtk::glib::Propagation::Stop
             }));
 
         win_state
@@ -745,7 +745,7 @@ impl WindowBuilder {
                     );
                 }
 
-                Inhibit(true)
+                gtk::glib::Propagation::Stop
             }));
 
         win_state
@@ -754,7 +754,7 @@ impl WindowBuilder {
                 if let Some(state) = handle.state.upgrade() {
                     state.with_handler(|h| h.got_focus());
                 }
-                Inhibit(true)
+                gtk::glib::Propagation::Stop
             }));
 
         win_state
@@ -763,7 +763,7 @@ impl WindowBuilder {
                 if let Some(state) = handle.state.upgrade() {
                     state.with_handler(|h| h.lost_focus());
                 }
-                Inhibit(true)
+                gtk::glib::Propagation::Stop
             }));
 
         win_state
@@ -771,9 +771,13 @@ impl WindowBuilder {
             .connect_delete_event(clone!(handle => move |_widget, _ev| {
                 if let Some(state) = handle.state.upgrade() {
                     state.with_handler(|h| h.request_close());
-                    Inhibit(!state.closing.get())
+                    if state.closing.get() {
+                        gtk::glib::Propagation::Stop
+                    } else {
+                        gtk::glib::Propagation::Proceed
+                    }
                 } else {
-                    Inhibit(false)
+                    gtk::glib::Propagation::Proceed
                 }
             }));
 
