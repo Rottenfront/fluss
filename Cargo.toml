@@ -1,5 +1,5 @@
 [workspace]
-members = ["trist", ".", "defui", "gcl"]
+members = [".", "crates/*"]
 
 [package]
 name = "fluss"
@@ -7,56 +7,13 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-default = [
-    "x11", "wayland",
-    # "metal-render",
-    # "d3d-render"
-    "gl-render",
-    # "vulkan-render"
-]
-
-gl-render = ["skia-safe/gl", "winit/rwh_05"]
-egl-render = ["skia-safe/egl"]
-x11 = ["skia-safe/x11"]
-wayland = ["skia-safe/wayland"]
-vulkan-render = ["skia-safe/vulkan"]
-metal-render = ["skia-safe/metal"]
-d3d-render = ["skia-safe/d3d"]
 
 [dependencies]
-skia-safe = { version = "0.70.0", features = ["textlayout", "svg"] }
 winit = { version = "0.29" }
-kurbo = "0.10"
 flo_binding = "2"
-
-# gl-window
-# [target.'cfg(any(target_os = "linux", target_os = "windows"))'.dependencies]
-glutin = "0.31.1"
-glutin-winit = { version = "0.4" }
-raw-window-handle = { version = "0.5.0" }
-gl = "0.14.0"
-
-# metal-window
-# [target.'cfg(target_os = "macos")'.dependencies]
-# metal = "0.27.0"
-# raw-window-handle = { version = "0.6.0" }
-# objc = "0.2.7"
-# cocoa = "0.25.0"
-# core-graphics-types = "0.1.1"
-# foreign-types-shared = "0.3.1"
-
-# d3d-window
-# [target.'cfg(target_os = "windows")'.dependencies]
-# anyhow = { version = "1.0.75" }
-# windows = { version = "0.52.0", features = [
-#     "Win32",
-#     "Win32_Graphics",
-#     "Win32_Graphics_Dxgi",
-#     "Win32_Graphics_Direct3D12",
-#     "Win32_Graphics_Direct3D",
-#     "Win32_Foundation",
-#     "Win32_Graphics_Dxgi_Common",
-# ] }
+shell = { path = "crates/shell" }
+tracing-subscriber = { version = "0.3.16", features = ["env-filter"] }
+time = "0.3.20"
 
 [profile.release]
 opt-level = 3

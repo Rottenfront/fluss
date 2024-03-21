@@ -1,0 +1,41 @@
+[package]
+name = "kurbo"
+version = "0.11.0"
+license = "MIT OR Apache-2.0"
+edition = "2021"
+rust-version = "1.65"
+keywords = ["graphics", "curve", "curves", "bezier", "geometry"]
+description = "A 2D curves library"
+categories = ["graphics"]
+
+[package.metadata.docs.rs]
+features = ["mint", "schemars", "serde"]
+
+[features]
+default = ["std"]
+std = []
+serde = ["smallvec/serde", "dep:serde"]
+schemars = ["schemars/smallvec", "dep:schemars"]
+
+[dependencies]
+smallvec = "1.10"
+
+arrayvec = { version = "0.7.1", default-features = false }
+
+libm = { version = "0.2.6", optional = true }
+
+mint = { version = "0.5.1", optional = true }
+
+schemars = { version = "0.8.6", optional = true }
+
+serde = { version = "1.0.105", optional = true, default-features = false, features = [
+    "alloc",
+    "derive",
+] }
+
+# This is used for research but not really needed; maybe refactor.
+[dev-dependencies]
+rand = "0.8.0"
+
+[target.'cfg(target_arch="wasm32")'.dev-dependencies]
+getrandom = { version = "0.2.0", features = ["js"] }
