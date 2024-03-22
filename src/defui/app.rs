@@ -14,28 +14,19 @@ pub struct UIApp<V: View + 'static> {
     view: V,
     ctx: Context,
     title: String,
-    transparent: bool,
-}
-
-pub enum Action {
-    Quit,
-    SetTitle(String),
-    SetCursor(Cursor),
-    SetTransparent(bool),
-    SetCursorVisible(bool),
-    SetCursorGrabbed(bool),
+    background_color: Color,
 }
 
 impl<V: View + 'static> UIApp<V> {
-    pub fn new(view: V, ctx: Context, title: String) -> Self {
+    pub fn new(view: V, ctx: Context, window_properties: WindowProperties) -> Self {
         Self {
             size: Size::ZERO,
             handle: Default::default(),
             last_time: time::Instant::now(),
             view,
             ctx,
-            title,
-            transparent: true,
+            title: window_properties.title,
+            background_color: window_properties.backdround_color,
         }
     }
 
@@ -48,15 +39,15 @@ impl<V: View + 'static> UIApp<V> {
             match action {
                 Action::SetTitle(title) => self.title = title,
                 Action::SetCursor(cursor) => self.handle.set_cursor(&cursor),
+                Action::SetBackgroundColor(color) => self.background_color = color,
                 Action::Quit => self.handle.close(),
-                _ => {}
             }
         }
     }
 
     fn clear_surface(&mut self, piet: &mut Piet) {
         let rect = self.size.to_rect();
-        piet.clear(rect, Color::TRANSPARENT);
+        piet.clear(rect, self.background_color);
     }
 
     fn draw_view(&mut self, piet: &mut Piet) {

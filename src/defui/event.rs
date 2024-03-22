@@ -7,3 +7,10 @@ pub enum Event {
     MousePress(MouseButton),
     MouseUnpress(MouseButton),
 }
+
+pub enum Action {
+    Quit,
+    SetTitle(String),
+    SetCursor(Cursor),
+    SetBackgroundColor(Color),
+}

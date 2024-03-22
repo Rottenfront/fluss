@@ -11,7 +11,7 @@ fn main() {
                     bind(Color::BLACK),
                     bind(Font::MONOSPACE),
                 ));
-                ctx.push_view(Stack::zstack(bind(vec![first, txt])))
+                ctx.push_view(Stack::zstack(vec![first, txt]))
             };
             let second = {
                 let first = ctx.push_view(Filler::new(|| Color::GREEN));
@@ -20,7 +20,7 @@ fn main() {
                     bind(Color::BLACK),
                     bind(Font::MONOSPACE),
                 ));
-                ctx.push_view(Stack::zstack(bind(vec![first, txt])))
+                ctx.push_view(Stack::zstack(vec![first, txt]))
             };
             let third = {
                 let first = ctx.push_view(Filler::new(|| Color::BLUE));
@@ -29,11 +29,14 @@ fn main() {
                     bind(Color::BLACK),
                     bind(Font::MONOSPACE),
                 ));
-                ctx.push_view(Stack::zstack(bind(vec![first, txt])))
+                ctx.push_view(Stack::zstack(vec![first, txt]))
             };
 
-            Stack::hstack(bind(vec![first, second, third]))
+            Stack::hstack(vec![first, second, third])
         },
-        "wtf".to_string(),
+        WindowProperties {
+            title: "wtf".into(),
+            backdround_color: Color::GRAY,
+        },
     )
 }
