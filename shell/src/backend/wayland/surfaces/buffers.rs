@@ -57,15 +57,16 @@ pub struct Buffers<const N: usize> {
     released: Cell<Vec<Buffer>>,
     /// The actual buffer objects.
     buffers: Cell<Option<[Buffer; N]>>,
-    /// Which buffer is the next to present. Iterates through to `N-1` then wraps. Draw to this
-    /// buffer
+    /// Buffer that is the next to present.
+    /// Iterates through to `N-1` then wraps.
+    /// Draw to this buffer
     pending: Cell<usize>,
     /// The physical size of the buffers.
     ///
     /// This will be different from the buffers' actual size if `recreate_buffers` is true.
     // NOTE: This really should support fractional scaling, use unstable protocol.
     size: Cell<RawSize>,
-    /// Do we need to rebuild the framebuffers (size changed).
+    /// Do we need to rebuild the frame buffers (size changed)?
     recreate_buffers: Cell<bool>,
     /// This flag allows us to check that we only hand out a mutable ref to the buffer data once.
     /// Otherwise providing mutable access to the data would be unsafe.

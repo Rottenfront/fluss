@@ -26,10 +26,8 @@ use std::time::Instant;
 
 use gtk::gdk_pixbuf::Colorspace::Rgb;
 use gtk::gdk_pixbuf::Pixbuf;
-use gtk::glib::source::Continue;
 use gtk::glib::translate::FromGlib;
 use gtk::prelude::*;
-use gtk::traits::SettingsExt;
 use gtk::{AccelGroup, ApplicationWindow, DrawingArea};
 
 use gdk_sys::GdkKeymapKey;
@@ -39,6 +37,7 @@ use cairo::Surface;
 use gtk::gdk::{
     EventKey, EventMask, EventType, ModifierType, ScrollDirection, Window, WindowTypeHint,
 };
+use gtk_rs::glib::{ControlFlow, Propagation};
 
 use instant::Duration;
 use tracing::{error, warn};
@@ -70,7 +69,7 @@ use super::util;
 
 /// The backend target DPI.
 ///
-/// GTK considers 96 the default value which represents a 1.0 scale factor.
+/// GTK considers 96 the default value which represents a 1.0-scale factor.
 const SCALE_TARGET_DPI: f64 = 96.0;
 
 /// Taken from <https://gtk-rs.org/docs-src/tutorial/closures>
@@ -427,7 +426,7 @@ impl WindowBuilder {
             .connect_enter_notify_event(|widget, _| {
                 widget.grab_focus();
 
-                Inhibit(true)
+                Propagation::Stop
             });
 
         // Set the minimum size
@@ -539,7 +538,7 @@ impl WindowBuilder {
                 }
             }
 
-            Inhibit(false)
+            Propagation::Proceed
         }));
 
         win_state.drawing_area.connect_screen_changed(
@@ -595,7 +594,7 @@ impl WindowBuilder {
                 });
             }
 
-            Inhibit(true)
+            Propagation::Stop
         }));
 
         win_state.drawing_area.connect_button_release_event(clone!(handle => move |_widget, event| {
@@ -622,7 +621,7 @@ impl WindowBuilder {
                 });
             }
 
-            Inhibit(true)
+            Propagation::Stop
         }));
 
         win_state.drawing_area.connect_motion_notify_event(
@@ -643,7 +642,7 @@ impl WindowBuilder {
                     state.with_handler(|h| h.mouse_move(&mouse_event));
                 }
 
-                Inhibit(true)
+                Propagation::Stop
             }),
         );
 
@@ -653,7 +652,7 @@ impl WindowBuilder {
                     state.with_handler(|h| h.mouse_leave());
                 }
 
-                Inhibit(true)
+                Propagation::Stop
             }),
         );
 
@@ -709,7 +708,7 @@ impl WindowBuilder {
                     }
                 }
 
-                Inhibit(true)
+                Propagation::Stop
             }));
 
         win_state
@@ -727,7 +726,7 @@ impl WindowBuilder {
                     );
                 }
 
-                Inhibit(true)
+                Propagation::Stop
             }));
 
         win_state
@@ -745,7 +744,7 @@ impl WindowBuilder {
                     );
                 }
 
-                Inhibit(true)
+                Propagation::Stop
             }));
 
         win_state
@@ -754,7 +753,7 @@ impl WindowBuilder {
                 if let Some(state) = handle.state.upgrade() {
                     state.with_handler(|h| h.got_focus());
                 }
-                Inhibit(true)
+                Propagation::Stop
             }));
 
         win_state
@@ -763,7 +762,7 @@ impl WindowBuilder {
                 if let Some(state) = handle.state.upgrade() {
                     state.with_handler(|h| h.lost_focus());
                 }
-                Inhibit(true)
+                Propagation::Stop
             }));
 
         win_state
@@ -771,9 +770,13 @@ impl WindowBuilder {
             .connect_delete_event(clone!(handle => move |_widget, _ev| {
                 if let Some(state) = handle.state.upgrade() {
                     state.with_handler(|h| h.request_close());
-                    Inhibit(!state.closing.get())
+                    if state.closing.get() {
+                        Propagation::Proceed
+                    } else {
+                        Propagation::Stop
+                    }
                 } else {
-                    Inhibit(false)
+                    Propagation::Proceed
                 }
             }));
 
@@ -1221,9 +1224,10 @@ impl WindowHandle {
         if let Some(state) = self.state.upgrade() {
             gtk::glib::timeout_add(interval, move || {
                 if state.with_handler(|h| h.timer(token)).is_some() {
-                    return Continue(false);
+                    ControlFlow::Break
+                } else {
+                    ControlFlow::Continue
                 }
-                Continue(true)
             });
         }
         token
@@ -1382,7 +1386,7 @@ impl IdleHandle {
     }
 }
 
-fn run_idle(state: &Arc<WindowState>) -> Continue {
+fn run_idle(state: &Arc<WindowState>) -> ControlFlow {
     util::assert_main_thread();
     let result = state.with_handler(|handler| {
         let queue: Vec<_> = std::mem::take(&mut state.idle_queue.lock().unwrap());
@@ -1398,13 +1402,13 @@ fn run_idle(state: &Arc<WindowState>) -> Continue {
     if result.is_none() {
         warn!("Delaying idle callbacks because the handler is borrowed.");
         // Keep trying to reschedule this idle callback, because we haven't had a chance
-        // to empty the idle queue. Returning Continue(true) achieves this but
+        // to empty the idle queue. Returning ControlFlow::Continue achieves this but
         // causes 100% CPU usage, apparently because glib likes to call us back very quickly.
         let state = Arc::clone(state);
         let timeout = Duration::from_millis(16);
         gtk::glib::timeout_add(timeout, move || run_idle(&state));
     }
-    Continue(false)
+    ControlFlow::Break
 }
 
 fn make_gdk_cursor(cursor: &Cursor, gdk_window: &Window) -> Option<gtk::gdk::Cursor> {
@@ -1413,14 +1417,12 @@ fn make_gdk_cursor(cursor: &Cursor, gdk_window: &Window) -> Option<gtk::gdk::Cur
     } else {
         gtk::gdk::Cursor::from_name(
             &gdk_window.display(),
-            #[allow(deprecated)]
             match cursor {
                 // cursor name values from https://www.w3.org/TR/css-ui-3/#cursor
                 Cursor::Arrow => "default",
                 Cursor::IBeam => "text",
                 Cursor::Pointer => "pointer",
                 Cursor::Crosshair => "crosshair",
-                Cursor::OpenHand => "grab",
                 Cursor::NotAllowed => "not-allowed",
                 Cursor::ResizeLeftRight => "ew-resize",
                 Cursor::ResizeUpDown => "ns-resize",

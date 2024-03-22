@@ -32,25 +32,25 @@ pub struct MouseEvent {
     /// [display points]: crate::Scale
     pub pos: Point,
     /// Mouse buttons being held down during a move or after a click event.
-    /// Thus it will contain the `button` that triggered a mouse-down event,
+    /// Thus, it will contain the `button` that triggered a mouse-down event,
     /// and it will not contain the `button` that triggered a mouse-up event.
     pub buttons: MouseButtons,
     /// Keyboard modifiers at the time of the event.
     pub mods: Modifiers,
     /// The number of mouse clicks associated with this event. This will always
-    /// be `0` for a mouse-up and mouse-move events.
+    /// be `0` for mouse-up and mouse-move events.
     pub count: u8,
     /// Focus is `true` on macOS when the mouse-down event (or its companion mouse-up event)
     /// with `MouseButton::Left` was the event that caused the window to gain focus.
     pub focus: bool,
-    /// The button that was pressed down in the case of mouse-down,
+    /// The button that was pressed down in the case of mouse-down
     /// or the button that was released in the case of mouse-up.
     /// This will always be `MouseButton::None` in the case of mouse-move.
     pub button: MouseButton,
     /// The wheel movement.
     ///
     /// The polarity is the amount to be added to the scroll position,
-    /// in other words the opposite of the direction the content should
+    /// in other words, the opposite of the direction the content should
     /// move on scrolling. This polarity is consistent with the
     /// deltaX and deltaY values in a web [WheelEvent].
     ///
@@ -245,8 +245,9 @@ impl std::fmt::Debug for MouseButtons {
     }
 }
 
-//NOTE: this currently only contains cursors that are included by default on
-//both Windows and macOS. We may want to provide polyfills for various additional cursors.
+// NOTE:
+// this currently only contains cursors that are included by default on both Windows and macOS.
+// We may want to provide polyfills for various additional cursors.
 /// Mouse cursors.
 #[derive(Clone, PartialEq, Eq)]
 pub enum Cursor {
@@ -256,17 +257,11 @@ pub enum Cursor {
     IBeam,
     Pointer,
     Crosshair,
-
-    #[doc(hidden)]
-    #[deprecated(
-        since = "0.8.0",
-        note = "This will be removed because it is not available on Windows."
-    )]
-    OpenHand,
     NotAllowed,
     ResizeLeftRight,
     ResizeUpDown,
-    // The platform cursor should be small. Any image data that it uses should be shared (i.e.
+    // The platform cursor should be small.
+    // Any image data that it uses should be shared (i.e.,
     // behind an `Arc` or using a platform API that does the sharing).
     Custom(backend::window::CustomCursor),
 }
@@ -283,9 +278,9 @@ pub struct CursorDesc {
 impl CursorDesc {
     /// Creates a new `CursorDesc`.
     ///
-    /// `hot` is the "hot spot" of the cursor, measured in terms of the pixels in `image` with
+    /// `Hot` is the "hot spot" of the cursor, measured in terms of the pixels in `image` with
     /// `(0, 0)` at the top left. The hot spot is the logical position of the mouse cursor within
-    /// the image. For example, if the image is a picture of a arrow, the hot spot might be the
+    /// the image. For example, if the image is a picture of an arrow, the hot spot might be the
     /// coordinates of the arrow's tip.
     pub fn new(image: ImageBuf, hot: impl Into<Point>) -> CursorDesc {
         CursorDesc {
@@ -303,7 +298,6 @@ impl std::fmt::Debug for Cursor {
             Cursor::IBeam => write!(f, "Cursor::IBeam"),
             Cursor::Pointer => write!(f, "Cursor::Pointer"),
             Cursor::Crosshair => write!(f, "Cursor::Crosshair"),
-            Cursor::OpenHand => write!(f, "Cursor::OpenHand"),
             Cursor::NotAllowed => write!(f, "Cursor::NotAllowed"),
             Cursor::ResizeLeftRight => write!(f, "Cursor::ResizeLeftRight"),
             Cursor::ResizeUpDown => write!(f, "Cursor::ResizeUpDown"),

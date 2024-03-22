@@ -111,7 +111,8 @@ impl Application {
             let locale: id = msg_send![nslocale_class, currentLocale];
             let ident: id = msg_send![locale, localeIdentifier];
             let mut locale = util::from_nsstring(ident);
-            // This is done because the locale parsing library we use expects an unicode locale, but these vars have an ISO locale
+            // This is done because the locale parsing library we use expects a unicode locale,
+            // but these vars have an ISO locale
             if let Some(idx) = locale.chars().position(|c| c == '@') {
                 locale.truncate(idx);
             }
@@ -179,7 +180,7 @@ extern "C" fn application_did_finish_launching(_this: &mut Object, _: Sel, _noti
     unsafe {
         let ns_app = NSApp();
         // We need to delay setting the activation policy and activating the app
-        // until we have the main menu all set up. Otherwise the menu won't be interactable.
+        // until we have the main menu all set up. Otherwise, the menu won't be interactable.
         ns_app.setActivationPolicy_(NSApplicationActivationPolicyRegular);
         let () = msg_send![ns_app, activateIgnoringOtherApps: YES];
     }

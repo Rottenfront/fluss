@@ -43,7 +43,7 @@ pub trait AppHandler {
 
 /// The top level application object.
 ///
-/// This can be thought of as a reference and it can be safely cloned.
+/// This can be thought of as a reference, and it can be safely cloned.
 #[derive(Clone)]
 pub struct Application {
     pub(crate) backend_app: backend::Application,
@@ -94,7 +94,7 @@ impl Application {
     ///
     /// # Panics
     ///
-    /// Panics if there is no globally active `Application`.
+    /// Panic if there is no globally active `Application`.
     /// For a non-panicking function use [`try_global`].
     ///
     /// This function will also panic if called from a non-main thread.
@@ -133,7 +133,7 @@ impl Application {
     ///
     /// # Panics
     ///
-    /// Panics if the `Application` is already running.
+    /// Panic if the `Application` is already running.
     pub fn run(self, handler: Option<Box<dyn AppHandler>>) {
         // Make sure this application hasn't run() yet.
         if let Ok(mut state) = self.state.try_borrow_mut() {
@@ -148,13 +148,13 @@ impl Application {
         // Run the platform application
         self.backend_app.run(handler);
 
-        // This application is no longer active, so clear the global reference
+        // This application is no longer active, so clears the global reference
         GLOBAL_APP.with(|global_app| {
             *global_app.borrow_mut() = None;
         });
-        // .. and release the main thread
+        // ... and release the main thread
         util::release_main_thread();
-        // .. and mark as done so a new sequence can start
+        // ... and mark as done so a new sequence can start
         APPLICATION_CREATED
             .compare_exchange(true, false, Ordering::AcqRel, Ordering::Acquire)
             .expect("Application marked as not created while still running.");
@@ -176,7 +176,7 @@ impl Application {
 
     /// Returns the current locale string.
     ///
-    /// This should a [Unicode language identifier].
+    /// This should be a [Unicode language identifier].
     ///
     /// [Unicode language identifier]: https://unicode.org/reports/tr35/#Unicode_language_identifier
     pub fn get_locale() -> String {

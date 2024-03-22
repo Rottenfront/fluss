@@ -98,10 +98,11 @@ pub(crate) struct Data {
     pub(super) wl_shm: wl::Main<WlShm>,
     /// A map of wayland object IDs to outputs.
     ///
-    /// Wayland will update this if the output change. Keep a record of the `Instant` you last
-    /// observed a change, and use `Output::changed` to see if there are any newer changes.
+    /// Wayland will update this if the output changes.
+    /// Keep a record of the `Instant` you last observed a change, and use `Output::changed` to see
+    /// if there are any newer changes.
     ///
-    /// It's a BTreeMap so the ordering is consistent when enumerating outputs (not sure if this is
+    /// It's a BTreeMap, so the ordering is consistent when enumerating outputs (not sure if this is
     /// necessary, but it negligible cost).
     pub(super) outputs: Rc<RefCell<BTreeMap<u32, outputs::Meta>>>,
     pub(super) seats: Rc<RefCell<BTreeMap<u32, Rc<RefCell<Seat>>>>>,
@@ -316,7 +317,7 @@ impl Application {
             }));
         }
 
-        // Let wayland finish setup before we allow the client to start creating windows etc.
+        // Let wayland finish setup before we allow the client to start creating windows, etc.
         appdata.sync()?;
 
         Ok(Application { data: appdata })
@@ -330,7 +331,7 @@ impl Application {
         // flush pending events (otherwise anything we submitted since sync will never be sent)
         self.data.wayland.display.flush().unwrap();
 
-        // Use calloop so we can epoll both wayland events and others (e.g. timers)
+        // Use calloop so we can epoll both wayland events and others (e.g., timers)
         let mut eventloop = calloop::EventLoop::try_new().unwrap();
         let handle = eventloop.handle();
 
@@ -478,7 +479,7 @@ impl Data {
         let mut timers = self.timers.borrow_mut();
         let now = Instant::now();
         while matches!(timers.peek(), Some(timer) if timer.deadline() < now) {
-            // timer has passed
+            // the timer has passed
             expired_timers.push(timers.pop().unwrap());
         }
         drop(timers);
@@ -513,11 +514,11 @@ impl Data {
                 .add_timeout(timer.deadline() - now, timer.token());
         }
         // Now flush so the events actually get sent (we don't do this automatically because we
-        // aren't in a wayland callback.
+        // aren't in a wayland callback).
         self.wayland.display.flush().unwrap();
     }
 
-    /// Shallow clones surfaces so we can modify it during iteration.
+    /// Shallow clones surfaces, so we can modify it during iteration.
     pub(super) fn handles_iter(&self) -> impl Iterator<Item = (u64, WindowHandle)> {
         self.handles.borrow().clone().into_iter()
     }

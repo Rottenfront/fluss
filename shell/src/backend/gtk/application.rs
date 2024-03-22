@@ -82,7 +82,8 @@ impl Application {
 
     pub fn get_locale() -> String {
         let mut locale: String = gtk::glib::language_names()[0].as_str().into();
-        // This is done because the locale parsing library we use expects an unicode locale, but these vars have an ISO locale
+        // This is done because the locale parsing library we use expects a unicode locale,
+        // but these vars have an ISO locale
         if let Some(idx) = locale.chars().position(|c| c == '.' || c == '@') {
             locale.truncate(idx);
         }

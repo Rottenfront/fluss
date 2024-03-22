@@ -77,7 +77,7 @@ impl Application {
     fn init() -> Result<(), Error> {
         util::attach_console();
         if let Some(func) = OPTIONAL_FUNCTIONS.SetProcessDpiAwarenessContext {
-            // This function is only supported on windows 10
+            // This function is only supported on Windows 10
             unsafe {
                 func(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
             }

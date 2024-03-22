@@ -39,7 +39,7 @@ unsafe impl Sync for AccelHandle {}
 static ACCEL_TABLES: Lazy<Mutex<HashMap<WindowHandle, Arc<AccelTable>>>> =
     Lazy::new(|| Mutex::new(HashMap::default()));
 
-/// A Accelerators Table for Windows
+/// An Accelerators Table for Windows
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub(crate) struct AccelTable {
     accel: AccelHandle,

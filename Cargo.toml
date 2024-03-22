@@ -1,5 +1,17 @@
 [workspace]
-members = [".", "shell"]
+members = [
+    ".",
+    "shell",
+    "piet/piet",
+    "piet/piet-cairo",
+    "piet/piet-common",
+    "piet/piet-coregraphics",
+    "piet/piet-direct2d",
+    "piet/piet-web",
+    "piet/piet-web/examples/basic",
+    "piet/piet-svg",
+]
+
 
 
 [package]

@@ -153,7 +153,7 @@ pub(crate) struct Application {
     /// The application would have to create a clone of its window on multiple screens
     /// and then fake the visual transfer.
     ///
-    /// In practice multiple physical monitor drawing areas are present on a single screen.
+    /// In practice, multiple physical monitor drawing areas are present on a single screen.
     /// This is achieved via various X server extensions (XRandR/Xinerama/TwinView),
     /// with XRandR seeming like the best choice.
     screen_num: usize, // Needs a container when no longer const
@@ -170,7 +170,7 @@ pub(crate) struct Application {
     /// The read end of the "idle pipe", a pipe that allows the event loop to be woken up from
     /// other threads.
     idle_read: RawFd,
-    /// The write end of the "idle pipe", a pipe that allows the event loop to be woken up from
+    /// The written end of the "idle pipe", a pipe that allows the event loop to be woken up from
     /// other threads.
     idle_write: RawFd,
     /// The major opcode of the Present extension, if it is supported.
@@ -204,10 +204,12 @@ pub(crate) struct Cursors {
 impl Application {
     pub fn new() -> Result<Application, Error> {
         // If we want to support OpenGL, we will need to open a connection with Xlib support (see
-        // https://xcb.freedesktop.org/opengl/ for background).  There is some sample code for this
-        // in the `rust-xcb` crate (see `connect_with_xlib_display`), although it may be missing
-        // something: according to the link below, If you want to handle events through x11rb and
-        // libxcb, you should call XSetEventQueueOwner(dpy, XCBOwnsEventQueue). Otherwise, libX11
+        // https://xcb.freedesktop.org/opengl/ for a background).
+        // There is some sample code for this in the `rust-xcb`
+        // crate (see `connect_with_xlib_display`), although it may be missing something:
+        // according to the link below, If you want to handle events through x11rb and
+        // libxcb, you should call XSetEventQueueOwner(dpy, XCBOwnsEventQueue).
+        // Otherwise, libX11
         // might randomly eat your events / move them to its own event queue.
         //
         // https://github.com/linebender/druid/pull/1025#discussion_r442777892
@@ -381,7 +383,7 @@ impl Application {
         );
 
         // We need the XFIXES extension to use regions. This code looks like it's just doing a
-        // sanity check but it is *necessary*: XFIXES doesn't work until we've done version
+        // check, but it is *necessary*: XFIXES doesn't work until we've done version
         // negotiation
         // (https://www.x.org/releases/X11R7.7/doc/fixesproto/fixesproto.txt)
         let version = conn
@@ -530,7 +532,7 @@ impl Application {
             // NOTE: When adding handling for any of the following events,
             //       there must be a check against self.window_id
             //       to know if the event must be ignored.
-            //       Otherwise there will be a "failed to get window" error.
+            //       Otherwise, there will be a "failed to get window" error.
             //
             //       CIRCULATE_NOTIFY, GRAVITY_NOTIFY
             //       MAP_NOTIFY, REPARENT_NOTIFY, UNMAP_NOTIFY
@@ -843,7 +845,7 @@ impl crate::platform::linux::ApplicationExt for crate::Application {
 /// Clears out our idle pipe; `idle_read` should be the reading end of a pipe that was opened with
 /// O_NONBLOCK.
 fn drain_idle_pipe(idle_read: RawFd) -> Result<(), Error> {
-    // Each write to the idle pipe adds one byte; it's unlikely that there will be much in it, but
+    // Each writing to the idle pipe adds one byte; it's unlikely that there will be much in it, but
     // read it 16 bytes at a time just in case.
     let mut read_buf = [0u8; 16];
     loop {
