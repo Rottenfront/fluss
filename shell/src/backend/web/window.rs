@@ -805,7 +805,6 @@ fn set_cursor(canvas: &web_sys::HtmlCanvasElement, cursor: &Cursor) {
                 Cursor::IBeam => "text",
                 Cursor::Pointer => "pointer",
                 Cursor::Crosshair => "crosshair",
-                Cursor::OpenHand => "grab",
                 Cursor::NotAllowed => "not-allowed",
                 Cursor::ResizeLeftRight => "ew-resize",
                 Cursor::ResizeUpDown => "ns-resize",

@@ -1,7 +1,8 @@
 use super::*;
 use shell::{
     kurbo::{Affine, Point, Size, Vec2},
-    KbKey, MouseButton,
+    piet::Piet,
+    MouseButton,
 };
 use std::{collections::HashMap, hash::Hash};
 
@@ -43,15 +44,12 @@ impl Layout {
     }
 }
 
-struct ViewState {}
-
 pub struct Context {
-    pub(crate) arena: HashMap<ViewId, Box<dyn View>>,
-    pub(crate) layouts: HashMap<ViewId, Layout>,
-    pub(crate) last_id: usize,
-    pub(crate) pointer: Vec2,
-    pub(crate) pressed_mb: HashMap<MouseButton, bool>,
-    pub(crate) pressed_keys: HashMap<KbKey, bool>,
+    pub(super) arena: HashMap<ViewId, Box<dyn View>>,
+    pub(super) layouts: HashMap<ViewId, Layout>,
+    pub(super) last_id: usize,
+    pub(super) pointer: Vec2,
+    pub(super) pressed_mb: HashMap<MouseButton, (bool, Vec<ViewId>)>,
 }
 
 impl Context {
@@ -62,8 +60,12 @@ impl Context {
             last_id: 0,
             pointer: Vec2::new(0.0, 0.0),
             pressed_mb: HashMap::new(),
-            pressed_keys: HashMap::new(),
         }
+    }
+
+    pub(crate) fn set_root_view<V: View + 'static>(&mut self, view: V) -> ViewId {
+        self.arena.insert(ViewId(0), Box::new(view));
+        ViewId(0)
     }
 
     /// Used on view initiation
@@ -71,16 +73,6 @@ impl Context {
         self.last_id += 1;
         self.arena.insert(ViewId(self.last_id), Box::new(view));
         ViewId(self.last_id)
-    }
-
-    /// Used to get view by id when rendering
-    pub fn get_view(&mut self, id: ViewId) -> Option<Box<dyn View>> {
-        self.arena.remove(&id)
-    }
-
-    /// Used to push view back to the arena after rendering
-    pub fn return_view(&mut self, id: ViewId, view: Box<dyn View>) {
-        self.arena.insert(id, view);
     }
 
     pub fn set_layout(&mut self, id: ViewId, layout: Layout) {
@@ -94,4 +86,25 @@ impl Context {
     pub fn get_layout(&self, id: ViewId) -> Option<&Layout> {
         self.layouts.get(&id)
     }
+
+    pub fn map_view<T: Default, F: FnMut(&mut Box<dyn View>, &mut Self) -> T>(
+        &mut self,
+        id: ViewId,
+        f: &mut F,
+    ) -> T {
+        let mut view = match self.arena.remove(&id) {
+            None => return Default::default(),
+            Some(view) => view,
+        };
+        let res = f(&mut view, self);
+        self.arena.insert(id, view);
+        res
+    }
+}
+
+pub struct DrawContext<'a, 'b, 'c> {
+    pub drawer: &'a mut Piet<'b>,
+    pub ctx: &'c mut Context,
+    pub size: Size,
+    pub id: ViewId,
 }

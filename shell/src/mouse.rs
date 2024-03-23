@@ -59,7 +59,7 @@ pub struct MouseEvent {
 }
 
 /// An indicator of which mouse button was pressed.
-#[derive(PartialEq, Eq, Clone, Copy, Debug)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug, Hash)]
 #[repr(u8)]
 pub enum MouseButton {
     /// No mouse button.

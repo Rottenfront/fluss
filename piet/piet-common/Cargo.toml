@@ -33,8 +33,8 @@ hdr = ["piet/hdr"]
 serde = ["piet/serde"]
 
 [dependencies]
-piet = { version = "=0.6.2", path = "../piet" }
-piet-web = { version = "=0.6.2", path = "../piet-web", optional = true }
+piet = { path = "../piet" }
+piet-web = { path = "../piet-web", optional = true }
 cfg-if = "1.0.0"
 png = { version = "0.17.7", optional = true }
 
@@ -44,14 +44,14 @@ cairo-rs = { version = "0.18", default_features = false }
 cairo-sys-rs = { version = "0.18" }
 
 [target.'cfg(any(target_os="macos", target_os="ios"))'.dependencies]
-piet-coregraphics = { version = "=0.6.2", path = "../piet-coregraphics" }
-core-graphics = { version = "0.22.3" }
+piet-coregraphics = { path = "../piet-coregraphics" }
+core-graphics = { version = "0.22" }
 
 [target.'cfg(target_os="windows")'.dependencies]
-piet-direct2d = { version = "=0.6.2", path = "../piet-direct2d" }
+piet-direct2d = { path = "../piet-direct2d" }
 
 [target.'cfg(target_arch="wasm32")'.dependencies]
-piet-web = { version = "=0.6.2", path = "../piet-web" }
+piet-web = { path = "../piet-web" }
 wasm-bindgen = "0.2.83"
 
 [target.'cfg(target_arch="wasm32")'.dev-dependencies]

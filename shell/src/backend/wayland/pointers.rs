@@ -225,7 +225,6 @@ impl Pointer {
             mouse::Cursor::Arrow => self.unpack_image_buffer("left_ptr"),
             mouse::Cursor::IBeam => self.unpack_image_buffer("xterm"),
             mouse::Cursor::Crosshair => self.unpack_image_buffer("cross"),
-            mouse::Cursor::OpenHand => self.unpack_image_buffer("openhand"),
             mouse::Cursor::NotAllowed => self.unpack_image_buffer("X_cursor"),
             mouse::Cursor::ResizeLeftRight => self.unpack_image_buffer("row-resize"),
             mouse::Cursor::ResizeUpDown => self.unpack_image_buffer("col-resize"),

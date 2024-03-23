@@ -14,18 +14,24 @@ impl Filler {
 }
 
 impl View for Filler {
-    fn draw(&self, id: ViewId, drawer: &mut Piet, max_size: Size, ctx: &mut Context) {
+    fn draw(&self, draw_ctx: DrawContext) {
+        let DrawContext {
+            id,
+            drawer,
+            size: max_size,
+            ctx,
+        } = draw_ctx;
         let offset = drawer.current_transform();
         ctx.set_layout(id, Layout::new(offset, max_size));
         let color = (self.color)();
         drawer.fill(&Rect::from_origin_size((0.0, 0.0), max_size), &color);
     }
 
-    fn process_event(&mut self, _event: &Event, _ctx: &mut Context, _drawer: &mut Piet) -> bool {
+    fn process_event(&mut self, _event: &Event, _ctx: &mut Context) -> bool {
         false
     }
 
-    fn get_min_size(&self, _drawer: &mut Piet) -> Size {
+    fn get_min_size(&self, _drawer: &mut Piet, _ctx: &mut Context) -> Size {
         Size::default()
     }
 

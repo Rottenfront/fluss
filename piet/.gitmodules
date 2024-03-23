@@ -1,3 +1,0 @@
-[submodule "snapshots"]
-	path = piet/snapshots
-	url = https://github.com/linebender/piet-snapshots.git

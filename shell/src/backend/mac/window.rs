@@ -1103,7 +1103,6 @@ impl WindowHandle {
                 Cursor::IBeam => msg_send![nscursor, IBeamCursor],
                 Cursor::Pointer => msg_send![nscursor, pointingHandCursor],
                 Cursor::Crosshair => msg_send![nscursor, crosshairCursor],
-                Cursor::OpenHand => msg_send![nscursor, openHandCursor],
                 Cursor::NotAllowed => msg_send![nscursor, operationNotAllowedCursor],
                 Cursor::ResizeLeftRight => msg_send![nscursor, resizeLeftRightCursor],
                 Cursor::ResizeUpDown => msg_send![nscursor, resizeUpDownCursor],

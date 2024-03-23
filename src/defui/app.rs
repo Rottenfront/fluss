@@ -7,31 +7,80 @@ use shell::{
 };
 use time::Instant;
 
-pub struct UIApp<V: View + 'static> {
+struct EventJob {
+    event: Event,
+    views: Vec<ViewId>,
+}
+
+pub struct UIApp {
     handle: WindowHandle,
     size: Size,
     last_time: Instant,
-    view: V,
+    root_view: ViewId,
     ctx: Context,
     title: String,
     background_color: Color,
+    event_queue: Vec<EventJob>,
 }
 
-impl<V: View + 'static> UIApp<V> {
-    pub fn new(view: V, ctx: Context, window_properties: WindowProperties) -> Self {
+impl UIApp {
+    pub fn new(root_view: ViewId, ctx: Context, window_properties: WindowProperties) -> Self {
         Self {
             size: Size::ZERO,
             handle: Default::default(),
             last_time: time::Instant::now(),
-            view,
+            root_view,
             ctx,
             title: window_properties.title,
             background_color: window_properties.backdround_color,
+            event_queue: vec![],
         }
     }
 
-    fn update_view(&mut self, piet: &mut Piet) {
-        self.view.process_event(&Event::Update, &mut self.ctx, piet);
+    fn add_update_event_job(&mut self) {
+        let event = Event::Update;
+        let views = self
+            .ctx
+            .arena
+            .keys()
+            .map(|key| *key)
+            .collect::<Vec<ViewId>>();
+        self.event_queue.push(EventJob { event, views });
+    }
+
+    /// Returns true if view processed the event
+    fn pass_event_to_view(&mut self, id: ViewId, event: &Event) -> bool {
+        self.ctx
+            .map_view(id, &mut |view, ctx| view.process_event(event, ctx))
+    }
+
+    fn process_event_job(&mut self, job: &EventJob) {
+        match &job.event {
+            // We must save the views that got mouse press event to give them
+            // mouse unpress event. That is usable in text editors to prevent
+            // scroll text with select
+            Event::MousePress(button) => {
+                let mut processed = vec![];
+                for id in &job.views {
+                    if self.pass_event_to_view(*id, &job.event) {
+                        processed.push(*id);
+                    }
+                }
+                self.ctx.pressed_mb.insert(*button, (true, processed));
+            }
+            event => {
+                for id in &job.views {
+                    self.pass_event_to_view(*id, event);
+                }
+            }
+        }
+    }
+
+    fn process_event_queue(&mut self) {
+        let event_queue = std::mem::take(&mut self.event_queue);
+        for job in &event_queue {
+            self.process_event_job(job);
+        }
     }
 
     fn update_window_data(&mut self, actions: Vec<Action>) {
@@ -51,7 +100,14 @@ impl<V: View + 'static> UIApp<V> {
     }
 
     fn draw_view(&mut self, piet: &mut Piet) {
-        self.view.draw(ViewId(0), piet, self.size, &mut self.ctx);
+        self.ctx.map_view(self.root_view, &mut |view, ctx| {
+            view.draw(DrawContext {
+                id: self.root_view,
+                drawer: piet,
+                size: self.size,
+                ctx,
+            })
+        });
     }
 
     fn draw_debug_data(&mut self, piet: &mut Piet) {
@@ -69,9 +125,13 @@ impl<V: View + 'static> UIApp<V> {
 
         piet.draw_text(&layout, (0.0, 0.0));
     }
+
+    fn after_draw(&mut self, _piet: &mut Piet) {
+        self.handle.request_anim_frame();
+    }
 }
 
-impl<V: View + 'static> WinHandler for UIApp<V> {
+impl WinHandler for UIApp {
     fn connect(&mut self, handle: &WindowHandle) {
         self.handle = handle.clone();
     }
@@ -81,8 +141,11 @@ impl<V: View + 'static> WinHandler for UIApp<V> {
     }
 
     fn paint(&mut self, piet: &mut Piet, _: &Region) {
-        self.update_view(piet);
+        self.add_update_event_job();
 
+        self.process_event_queue();
+
+        // TODO
         self.update_window_data(vec![]);
 
         self.clear_surface(piet);
@@ -91,7 +154,7 @@ impl<V: View + 'static> WinHandler for UIApp<V> {
 
         self.draw_debug_data(piet);
 
-        self.handle.request_anim_frame();
+        self.after_draw(piet);
     }
 
     fn command(&mut self, id: u32) {
@@ -123,20 +186,30 @@ impl<V: View + 'static> WinHandler for UIApp<V> {
     }
 
     fn mouse_move(&mut self, event: &MouseEvent) {
-        self.handle.set_cursor(&Cursor::Arrow);
-        println!("mouse_move {event:?}");
+        self.ctx.pointer = event.pos.to_vec2();
     }
 
     fn mouse_down(&mut self, event: &MouseEvent) {
+        self.ctx.pressed_mb.remove(&event.button);
+        let mut views = vec![];
         for (key, layout) in self.ctx.layouts.iter() {
             if layout.intersects(event.pos) {
-                println!("{key:?} {layout:?}");
+                views.push(*key);
             }
         }
+        self.event_queue.push(EventJob {
+            event: Event::MousePress(event.button),
+            views,
+        })
     }
 
     fn mouse_up(&mut self, event: &MouseEvent) {
-        println!("mouse_up {event:?}");
+        if let Some((_, views)) = self.ctx.pressed_mb.remove(&event.button) {
+            self.event_queue.push(EventJob {
+                event: Event::MouseUnpress(event.button),
+                views,
+            });
+        }
     }
 
     fn timer(&mut self, id: TimerToken) {
@@ -148,6 +221,7 @@ impl<V: View + 'static> WinHandler for UIApp<V> {
     }
 
     fn got_focus(&mut self) {
+        self.handle.set_cursor(&Cursor::Arrow);
         println!("Got focus");
     }
 

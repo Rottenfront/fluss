@@ -47,16 +47,18 @@ impl Stack {
         let height = max_size.height / (self.views.len() as f64);
         let mut current_offset = 0.0;
         for id in &self.views {
-            let view = match ctx.get_view(*id) {
-                None => continue,
-                Some(view) => view,
-            };
-            let _ = drawer.save();
-            drawer.transform(Affine::translate((0.0, current_offset)));
-            view.draw(*id, drawer, Size::new(max_size.width, height), ctx);
-            current_offset += height;
-            let _ = drawer.restore();
-            ctx.return_view(*id, view);
+            ctx.map_view(*id, &mut |view, ctx| {
+                let _ = drawer.save();
+                drawer.transform(Affine::translate((0.0, current_offset)));
+                view.draw(DrawContext {
+                    id: *id,
+                    drawer,
+                    size: Size::new(max_size.width, height),
+                    ctx,
+                });
+                current_offset += height;
+                let _ = drawer.restore();
+            });
         }
     }
 
@@ -64,27 +66,31 @@ impl Stack {
         let width = max_size.width / (self.views.len() as f64);
         let mut current_offset = 0.0;
         for id in &self.views {
-            let view = match ctx.get_view(*id) {
-                None => continue,
-                Some(view) => view,
-            };
-            let _ = drawer.save();
-            drawer.transform(Affine::translate((current_offset, 0.0)));
-            view.draw(*id, drawer, Size::new(width, max_size.height), ctx);
-            current_offset += width;
-            let _ = drawer.restore();
-            ctx.return_view(*id, view);
+            ctx.map_view(*id, &mut |view, ctx| {
+                let _ = drawer.save();
+                drawer.transform(Affine::translate((current_offset, 0.0)));
+                view.draw(DrawContext {
+                    id: *id,
+                    drawer,
+                    size: Size::new(width, max_size.height),
+                    ctx,
+                });
+                current_offset += width;
+                let _ = drawer.restore();
+            });
         }
     }
 
     fn draw_depth(&self, drawer: &mut Piet, max_size: Size, ctx: &mut Context) {
         for id in &self.views {
-            let view = match ctx.get_view(*id) {
-                None => continue,
-                Some(view) => view,
-            };
-            view.draw(*id, drawer, max_size, ctx);
-            ctx.return_view(*id, view);
+            ctx.map_view(*id, &mut |view, ctx| {
+                view.draw(DrawContext {
+                    id: *id,
+                    drawer,
+                    size: max_size,
+                    ctx,
+                });
+            });
         }
     }
 
@@ -98,7 +104,13 @@ impl Stack {
 }
 
 impl View for Stack {
-    fn draw(&self, id: ViewId, drawer: &mut Piet, max_size: Size, ctx: &mut Context) {
+    fn draw(&self, draw_ctx: DrawContext) {
+        let DrawContext {
+            id,
+            drawer,
+            size: max_size,
+            ctx,
+        } = draw_ctx;
         self.update_layout(id, drawer, max_size, ctx);
         if self.views.is_empty() {
             return;
@@ -106,11 +118,11 @@ impl View for Stack {
         self.draw_views(drawer, max_size, ctx);
     }
 
-    fn process_event(&mut self, _event: &Event, _ctx: &mut Context, _drawer: &mut Piet) -> bool {
+    fn process_event(&mut self, _event: &Event, _ctx: &mut Context) -> bool {
         false
     }
 
-    fn get_min_size(&self, _drawer: &mut Piet) -> Size {
+    fn get_min_size(&self, _drawer: &mut Piet, ctx: &mut Context) -> Size {
         Size::default()
     }
 

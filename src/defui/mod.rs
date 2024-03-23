@@ -2,6 +2,7 @@ mod app;
 mod context;
 mod event;
 mod filler;
+mod modifiers;
 mod stack;
 mod text;
 mod view;
@@ -9,15 +10,16 @@ mod view;
 pub use context::*;
 pub use event::*;
 pub use filler::*;
-use shell::{piet::Color, Application, Cursor, WindowBuilder};
+pub use modifiers::*;
 pub use stack::*;
 pub use text::*;
 pub use view::*;
 
-use std::any::Any;
-
 pub use flo_binding::{bind, Binding, Bound, MutableBound};
 pub use shell;
+
+use shell::{piet::Color, Application, Cursor, WindowBuilder};
+use std::any::Any;
 
 pub struct WindowProperties {
     pub title: String,
@@ -38,7 +40,7 @@ pub fn run<V: View + 'static, F: Fn(&mut Context) -> V>(
 
     let mut ctx = Context::new();
     let view = view(&mut ctx);
-    let uiapp = app::UIApp::new(view, ctx, window_properties);
+    let uiapp = app::UIApp::new(ctx.set_root_view(view), ctx, window_properties);
     builder.set_handler(Box::new(uiapp));
 
     let window = builder.build().unwrap();

@@ -1052,10 +1052,6 @@ impl Window {
             Cursor::IBeam => cursors.text,
             Cursor::Pointer => cursors.pointer,
             Cursor::Crosshair => cursors.crosshair,
-            Cursor::OpenHand => {
-                warn!("Cursor::OpenHand not supported for x11 backend. using arrow cursor");
-                None
-            }
             Cursor::NotAllowed => cursors.not_allowed,
             Cursor::ResizeLeftRight => cursors.col_resize,
             Cursor::ResizeUpDown => cursors.row_resize,

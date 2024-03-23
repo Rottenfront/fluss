@@ -2037,10 +2037,6 @@ impl Cursor {
             Cursor::IBeam => IDC_IBEAM,
             Cursor::Pointer => IDC_HAND,
             Cursor::Crosshair => IDC_CROSS,
-            Cursor::OpenHand => {
-                warn!("Cursor::OpenHand not available on windows");
-                IDC_ARROW
-            }
             Cursor::NotAllowed => IDC_NO,
             Cursor::ResizeLeftRight => IDC_SIZEWE,
             Cursor::ResizeUpDown => IDC_SIZENS,
