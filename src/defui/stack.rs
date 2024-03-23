@@ -43,10 +43,11 @@ impl Stack {
         ctx.set_layout(id, Layout::new(offset, max_size));
     }
 
-    fn draw_vertical(&self, drawer: &mut Piet, max_size: Size, ctx: &mut Context) {
+    fn draw_vertical(&self, self_id: ViewId, drawer: &mut Piet, max_size: Size, ctx: &mut Context) {
         let height = max_size.height / (self.views.len() as f64);
         let mut current_offset = 0.0;
         for id in &self.views {
+            ctx.set_parent_view(*id, self_id);
             ctx.map_view(*id, &mut |view, ctx| {
                 let _ = drawer.save();
                 drawer.transform(Affine::translate((0.0, current_offset)));
@@ -62,10 +63,17 @@ impl Stack {
         }
     }
 
-    fn draw_horizontal(&self, drawer: &mut Piet, max_size: Size, ctx: &mut Context) {
+    fn draw_horizontal(
+        &self,
+        self_id: ViewId,
+        drawer: &mut Piet,
+        max_size: Size,
+        ctx: &mut Context,
+    ) {
         let width = max_size.width / (self.views.len() as f64);
         let mut current_offset = 0.0;
         for id in &self.views {
+            ctx.set_parent_view(*id, self_id);
             ctx.map_view(*id, &mut |view, ctx| {
                 let _ = drawer.save();
                 drawer.transform(Affine::translate((current_offset, 0.0)));
@@ -76,14 +84,16 @@ impl Stack {
                     ctx,
                 });
                 current_offset += width;
+
                 let _ = drawer.restore();
             });
         }
     }
 
-    fn draw_depth(&self, drawer: &mut Piet, max_size: Size, ctx: &mut Context) {
+    fn draw_depth(&self, self_id: ViewId, drawer: &mut Piet, max_size: Size, ctx: &mut Context) {
         for id in &self.views {
             ctx.map_view(*id, &mut |view, ctx| {
+                ctx.set_parent_view(*id, self_id);
                 view.draw(DrawContext {
                     id: *id,
                     drawer,
@@ -94,11 +104,11 @@ impl Stack {
         }
     }
 
-    fn draw_views(&self, drawer: &mut Piet, max_size: Size, ctx: &mut Context) {
+    fn draw_views(&self, self_id: ViewId, drawer: &mut Piet, max_size: Size, ctx: &mut Context) {
         match self.direction {
-            StackDirection::Vertical => self.draw_vertical(drawer, max_size, ctx),
-            StackDirection::Horizontal => self.draw_horizontal(drawer, max_size, ctx),
-            StackDirection::Depth => self.draw_depth(drawer, max_size, ctx),
+            StackDirection::Vertical => self.draw_vertical(self_id, drawer, max_size, ctx),
+            StackDirection::Horizontal => self.draw_horizontal(self_id, drawer, max_size, ctx),
+            StackDirection::Depth => self.draw_depth(self_id, drawer, max_size, ctx),
         }
     }
 }
@@ -115,7 +125,7 @@ impl View for Stack {
         if self.views.is_empty() {
             return;
         }
-        self.draw_views(drawer, max_size, ctx);
+        self.draw_views(id, drawer, max_size, ctx);
     }
 
     fn process_event(&mut self, _event: &Event, _ctx: &mut Context) -> bool {

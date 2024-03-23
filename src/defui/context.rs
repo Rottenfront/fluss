@@ -15,10 +15,16 @@ impl Hash for ViewId {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct Layout {
     offset: Affine,
     size: Size,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+pub(crate) struct ViewState {
+    pub(crate) layout: Layout,
+    pub(crate) parent: Option<ViewId>,
 }
 
 impl Layout {
@@ -46,7 +52,7 @@ impl Layout {
 
 pub struct Context {
     pub(super) arena: HashMap<ViewId, Box<dyn View>>,
-    pub(super) layouts: HashMap<ViewId, Layout>,
+    pub(super) view_states: HashMap<ViewId, ViewState>,
     pub(super) last_id: usize,
     pub(super) pointer: Vec2,
     pub(super) pressed_mb: HashMap<MouseButton, (bool, Vec<ViewId>)>,
@@ -56,7 +62,7 @@ impl Context {
     pub fn new() -> Self {
         Context {
             arena: HashMap::new(),
-            layouts: HashMap::new(),
+            view_states: HashMap::new(),
             last_id: 0,
             pointer: Vec2::new(0.0, 0.0),
             pressed_mb: HashMap::new(),
@@ -76,15 +82,35 @@ impl Context {
     }
 
     pub fn set_layout(&mut self, id: ViewId, layout: Layout) {
-        if let Some(current) = self.layouts.get_mut(&id) {
-            *current = layout;
+        if let Some(current) = self.view_states.get_mut(&id) {
+            current.layout = layout;
         } else {
-            self.layouts.insert(id, layout);
+            self.view_states.insert(
+                id,
+                ViewState {
+                    layout,
+                    parent: None,
+                },
+            );
+        }
+    }
+
+    pub fn set_parent_view(&mut self, id: ViewId, parent: ViewId) {
+        if let Some(current) = self.view_states.get_mut(&id) {
+            current.parent = Some(parent);
+        } else {
+            self.view_states.insert(
+                id,
+                ViewState {
+                    layout: Default::default(),
+                    parent: Some(parent),
+                },
+            );
         }
     }
 
     pub fn get_layout(&self, id: ViewId) -> Option<&Layout> {
-        self.layouts.get(&id)
+        self.view_states.get(&id).map(|state| &state.layout)
     }
 
     pub fn map_view<T: Default, F: FnMut(&mut Box<dyn View>, &mut Self) -> T>(

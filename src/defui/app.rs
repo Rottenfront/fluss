@@ -192,8 +192,8 @@ impl WinHandler for UIApp {
     fn mouse_down(&mut self, event: &MouseEvent) {
         self.ctx.pressed_mb.remove(&event.button);
         let mut views = vec![];
-        for (key, layout) in self.ctx.layouts.iter() {
-            if layout.intersects(event.pos) {
+        for (key, view_state) in self.ctx.view_states.iter() {
+            if view_state.layout.intersects(event.pos) {
                 views.push(*key);
             }
         }
