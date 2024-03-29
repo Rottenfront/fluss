@@ -1,7 +1,10 @@
+use std::collections::HashMap;
+
 use super::*;
 use shell::{
     kurbo::{Affine, Size},
     piet::{Piet, RenderContext},
+    MouseButton,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -12,103 +15,136 @@ pub enum StackDirection {
 }
 
 pub struct Stack {
+    id: ViewId,
     direction: StackDirection,
-    views: Vec<ViewId>,
+    views: Vec<Box<dyn View>>,
+    pressed_mb: HashMap<MouseButton, usize>,
 }
 
 impl Stack {
-    pub fn vstack(views: Vec<ViewId>) -> Self {
+    pub fn new(direction: StackDirection, views: Vec<Box<dyn View>>) -> Self {
         Self {
-            direction: StackDirection::Vertical,
+            id: new_id(),
+            direction,
             views,
+            pressed_mb: HashMap::new(),
         }
     }
-
-    pub fn hstack(views: Vec<ViewId>) -> Self {
-        Self {
-            direction: StackDirection::Horizontal,
-            views,
-        }
+    pub fn vstack(views: Vec<Box<dyn View>>) -> Self {
+        Self::new(StackDirection::Vertical, views)
+    }
+    pub fn hstack(views: Vec<Box<dyn View>>) -> Self {
+        Self::new(StackDirection::Horizontal, views)
+    }
+    pub fn zstack(views: Vec<Box<dyn View>>) -> Self {
+        Self::new(StackDirection::Depth, views)
     }
 
-    pub fn zstack(views: Vec<ViewId>) -> Self {
-        Self {
-            direction: StackDirection::Depth,
-            views,
-        }
-    }
-
-    fn update_layout(&self, id: ViewId, drawer: &mut Piet, max_size: Size, ctx: &mut Context) {
-        let offset = drawer.current_transform();
-        ctx.set_layout(id, Layout::new(offset, max_size));
-    }
-
-    fn draw_vertical(&self, self_id: ViewId, drawer: &mut Piet, max_size: Size, ctx: &mut Context) {
+    fn draw_vertical(&self, drawer: &mut Piet, max_size: Size, ctx: &mut Context) {
         let height = max_size.height / (self.views.len() as f64);
         let mut current_offset = 0.0;
-        for id in &self.views {
-            ctx.set_parent_view(*id, self_id);
-            ctx.map_view(*id, &mut |view, ctx| {
-                let _ = drawer.save();
-                drawer.transform(Affine::translate((0.0, current_offset)));
-                view.draw(DrawContext {
-                    id: *id,
-                    drawer,
-                    size: Size::new(max_size.width, height),
-                    ctx,
-                });
-                current_offset += height;
-                let _ = drawer.restore();
+        for view in &self.views {
+            view.update_parent(self.get_id(), ctx);
+            let _ = drawer.save();
+            drawer.transform(Affine::translate((0.0, current_offset)));
+            view.draw(DrawContext {
+                drawer,
+                size: Size::new(max_size.width, height),
+                ctx,
             });
+            current_offset += height;
+            let _ = drawer.restore();
         }
     }
 
-    fn draw_horizontal(
-        &self,
-        self_id: ViewId,
-        drawer: &mut Piet,
-        max_size: Size,
-        ctx: &mut Context,
-    ) {
+    fn draw_horizontal(&self, drawer: &mut Piet, max_size: Size, ctx: &mut Context) {
         let width = max_size.width / (self.views.len() as f64);
         let mut current_offset = 0.0;
-        for id in &self.views {
-            ctx.set_parent_view(*id, self_id);
-            ctx.map_view(*id, &mut |view, ctx| {
-                let _ = drawer.save();
-                drawer.transform(Affine::translate((current_offset, 0.0)));
-                view.draw(DrawContext {
-                    id: *id,
-                    drawer,
-                    size: Size::new(width, max_size.height),
-                    ctx,
-                });
-                current_offset += width;
+        for view in &self.views {
+            view.update_parent(self.get_id(), ctx);
+            let _ = drawer.save();
+            drawer.transform(Affine::translate((current_offset, 0.0)));
+            view.draw(DrawContext {
+                drawer,
+                size: Size::new(width, max_size.height),
+                ctx,
+            });
+            current_offset += width;
 
-                let _ = drawer.restore();
+            let _ = drawer.restore();
+        }
+    }
+
+    fn draw_depth(&self, drawer: &mut Piet, max_size: Size, ctx: &mut Context) {
+        for view in &self.views {
+            view.update_parent(self.get_id(), ctx);
+            view.draw(DrawContext {
+                drawer,
+                size: max_size,
+                ctx,
             });
         }
     }
 
-    fn draw_depth(&self, self_id: ViewId, drawer: &mut Piet, max_size: Size, ctx: &mut Context) {
-        for id in &self.views {
-            ctx.map_view(*id, &mut |view, ctx| {
-                ctx.set_parent_view(*id, self_id);
-                view.draw(DrawContext {
-                    id: *id,
-                    drawer,
-                    size: max_size,
-                    ctx,
-                });
-            });
-        }
-    }
-
-    fn draw_views(&self, self_id: ViewId, drawer: &mut Piet, max_size: Size, ctx: &mut Context) {
+    fn draw_views(&self, drawer: &mut Piet, max_size: Size, ctx: &mut Context) {
         match self.direction {
-            StackDirection::Vertical => self.draw_vertical(self_id, drawer, max_size, ctx),
-            StackDirection::Horizontal => self.draw_horizontal(self_id, drawer, max_size, ctx),
-            StackDirection::Depth => self.draw_depth(self_id, drawer, max_size, ctx),
+            StackDirection::Vertical => self.draw_vertical(drawer, max_size, ctx),
+            StackDirection::Horizontal => self.draw_horizontal(drawer, max_size, ctx),
+            StackDirection::Depth => self.draw_depth(drawer, max_size, ctx),
+        }
+    }
+
+    fn process_update(&mut self, ctx: &mut Context) -> bool {
+        let mut processed = false;
+        for view in &mut self.views {
+            processed |= view.process_event(&Event::Update, ctx);
+        }
+        processed
+    }
+
+    fn process_mouse_press(&mut self, event: &Event, ctx: &mut Context) -> bool {
+        let Event::MousePress { button, pos } = event else {
+            return false;
+        };
+        if self.direction == StackDirection::Depth {
+            let mut processed = false;
+            for view in &mut self.views {
+                processed |= view.process_event(event, ctx);
+            }
+            processed
+        } else {
+            for (id, view) in self.views.iter_mut().enumerate() {
+                if let Some(true) = view.get_layout(ctx).map(|layout| layout.intersects(*pos)) {
+                    self.pressed_mb.insert(*button, id);
+                    return view.process_event(
+                        &Event::MousePress {
+                            button: *button,
+                            pos: *pos,
+                        },
+                        ctx,
+                    );
+                }
+            }
+            false
+        }
+    }
+
+    fn process_mouse_unpress(&mut self, event: &Event, ctx: &mut Context) -> bool {
+        let Event::MouseUnpress { button, .. } = event else {
+            return false;
+        };
+        if self.direction == StackDirection::Depth {
+            let mut processed = false;
+            for view in &mut self.views {
+                processed |= view.process_event(event, ctx);
+            }
+            processed
+        } else {
+            if let Some(id) = self.pressed_mb.remove(button) {
+                self.views[id].process_event(event, ctx)
+            } else {
+                false
+            }
         }
     }
 }
@@ -116,20 +152,27 @@ impl Stack {
 impl View for Stack {
     fn draw(&self, draw_ctx: DrawContext) {
         let DrawContext {
-            id,
             drawer,
             size: max_size,
             ctx,
         } = draw_ctx;
-        self.update_layout(id, drawer, max_size, ctx);
+        self.update_layout(Layout::new(drawer.current_transform(), max_size), ctx);
         if self.views.is_empty() {
             return;
         }
-        self.draw_views(id, drawer, max_size, ctx);
+        self.draw_views(drawer, max_size, ctx);
     }
 
-    fn process_event(&mut self, _event: &Event, _ctx: &mut Context) -> bool {
-        false
+    fn get_id(&self) -> ViewId {
+        self.id
+    }
+
+    fn process_event(&mut self, event: &Event, ctx: &mut Context) -> bool {
+        match event {
+            Event::MousePress { .. } => self.process_mouse_press(event, ctx),
+            Event::MouseUnpress { .. } => self.process_mouse_unpress(event, ctx),
+            Event::Update => self.process_update(ctx),
+        }
     }
 
     fn get_min_size(&self, _drawer: &mut Piet, ctx: &mut Context) -> Size {

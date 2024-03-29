@@ -82,6 +82,7 @@ impl Font {
 }
 
 pub struct TextView {
+    id: ViewId,
     text: fn() -> String,
     color: Binding<Color>,
     font: Binding<Font>,
@@ -89,14 +90,18 @@ pub struct TextView {
 
 impl TextView {
     pub fn new(text: fn() -> String, color: Binding<Color>, font: Binding<Font>) -> Self {
-        Self { color, text, font }
+        Self {
+            id: new_id(),
+            color,
+            text,
+            font,
+        }
     }
 }
 
 impl View for TextView {
     fn draw(&self, draw_ctx: DrawContext) {
         let DrawContext {
-            id,
             drawer,
             size: max_size,
             ctx,
@@ -117,9 +122,12 @@ impl View for TextView {
             .unwrap();
         let size = layout.size();
         let size = Size::new(size.width, size.height.min(max_size.height));
-        ctx.set_layout(id, Layout::new(offset, size));
-
+        self.update_layout(Layout::new(offset, size), ctx);
         drawer.draw_text(&layout, (0.0, 0.0));
+    }
+
+    fn get_id(&self) -> ViewId {
+        self.id
     }
 
     fn process_event(&mut self, _event: &Event, _ctx: &mut Context) -> bool {

@@ -64,15 +64,13 @@ Stack::hstack(vec![first, second, third])
 #[macro_export]
 macro_rules! zstack {
     // The pattern for a single `eval`
-    [$ctx:ident; $($view:expr),+] => {
+    {$($view:expr),+} => {
         {
-            let mut ids = vec![];
+            let mut views = vec![];
             $(
-                let view = $view;
-                let id = $ctx.push_view(view);
-                ids.push(id);
+                views.push(Box::new($view) as Box<(dyn View + 'static)>);
             )+
-            Stack::zstack(ids)
+            Stack::zstack(views)
         }
     };
 }
@@ -80,15 +78,13 @@ macro_rules! zstack {
 #[macro_export]
 macro_rules! hstack {
     // The pattern for a single `eval`
-    [$ctx:ident; $($view:expr),+] => {
+    {$($view:expr),+} => {
         {
-            let mut ids = vec![];
+            let mut views = vec![];
             $(
-                let view = $view;
-                let id = $ctx.push_view(view);
-                ids.push(id);
+                views.push(Box::new($view) as Box<(dyn View + 'static)>);
             )+
-            Stack::hstack(ids)
+            Stack::hstack(views)
         }
     };
 }
@@ -96,23 +92,18 @@ macro_rules! hstack {
 #[macro_export]
 macro_rules! vstack {
     // The pattern for a single `eval`
-    [$ctx:ident; $($view:expr),+] => {
+    {$($view:expr),+} => {
         {
-            let mut ids = vec![];
+            let mut views = vec![];
             $(
-                let view = $view;
-                let id = $ctx.push_view(view);
-                ids.push(id);
+                views.push(Box::new($view) as Box<(dyn View + 'static)>);
             )+
-            Stack::vstack(ids)
+            Stack::vstack(views)
         }
     };
 }
 
-pub fn run<V: View + 'static, F: Fn(&mut Context) -> V>(
-    view: F,
-    window_properties: WindowProperties,
-) {
+pub fn run<V: View + 'static>(view: V, window_properties: WindowProperties) {
     tracing_subscriber::fmt().init();
     let app = Application::new().unwrap();
     let mut builder = WindowBuilder::new(app.clone());
@@ -121,9 +112,7 @@ pub fn run<V: View + 'static, F: Fn(&mut Context) -> V>(
     // we set transparent to true so user can make window background transparent
     builder.set_transparent(true);
 
-    let mut ctx = Context::new();
-    let view = view(&mut ctx);
-    let uiapp = app::UIApp::new(ctx.set_root_view(view), ctx, window_properties);
+    let uiapp = app::UIApp::new(view, window_properties);
     builder.set_handler(Box::new(uiapp));
 
     let window = builder.build().unwrap();

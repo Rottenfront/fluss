@@ -1,11 +1,17 @@
 use super::*;
-use shell::MouseButton;
+use shell::{kurbo::Point, MouseButton};
 
 pub enum Event {
     /// being called every frame
     Update,
-    MousePress(MouseButton),
-    MouseUnpress(MouseButton),
+    MousePress {
+        button: MouseButton,
+        pos: Point,
+    },
+    MouseUnpress {
+        button: MouseButton,
+        pos: Point,
+    },
 }
 
 pub enum Action {

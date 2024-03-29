@@ -12,78 +12,31 @@ struct EventJob {
     views: Vec<ViewId>,
 }
 
-pub struct UIApp {
+pub struct UIApp<V: View + 'static> {
     handle: WindowHandle,
     size: Size,
     last_time: Instant,
-    root_view: ViewId,
+    root_view: V,
     ctx: Context,
     title: String,
     background_color: Color,
-    event_queue: Vec<EventJob>,
 }
 
-impl UIApp {
-    pub fn new(root_view: ViewId, ctx: Context, window_properties: WindowProperties) -> Self {
+impl<V: View + 'static> UIApp<V> {
+    pub fn new(root_view: V, window_properties: WindowProperties) -> Self {
         Self {
             size: Size::ZERO,
             handle: Default::default(),
             last_time: time::Instant::now(),
             root_view,
-            ctx,
+            ctx: Context::new(),
             title: window_properties.title,
             background_color: window_properties.backdround_color,
-            event_queue: vec![],
         }
     }
 
-    fn add_update_event_job(&mut self) {
-        let event = Event::Update;
-        let views = self
-            .ctx
-            .arena
-            .keys()
-            .map(|key| *key)
-            .collect::<Vec<ViewId>>();
-        self.event_queue.push(EventJob { event, views });
-    }
-
-    /// Returns true if view processed the event
-    fn pass_event_to_view(&mut self, id: ViewId, event: &Event) -> bool {
-        self.ctx
-            .map_view(id, &mut |view, ctx| view.process_event(event, ctx))
-    }
-
-    fn process_event_job(&mut self, job: &EventJob) {
-        match &job.event {
-            // We must save the views that got mouse press event to give them
-            // mouse unpress event. That is usable in text editors to prevent
-            // scroll text with select
-            Event::MousePress(button) => {
-                let mut processed = vec![];
-                for id in &job.views {
-                    if self.pass_event_to_view(*id, &job.event) {
-                        processed.push(*id);
-                    }
-                }
-                self.ctx.pressed_mb.insert(*button, (true, processed));
-            }
-            event => {
-                for id in &job.views {
-                    self.pass_event_to_view(*id, event);
-                }
-            }
-        }
-    }
-
-    fn process_event_queue(&mut self) {
-        let event_queue = std::mem::take(&mut self.event_queue);
-        for job in &event_queue {
-            self.process_event_job(job);
-        }
-    }
-
-    fn update_window_data(&mut self, actions: Vec<Action>) {
+    fn update_window_data(&mut self) {
+        let actions = std::mem::take(&mut self.ctx.actions);
         for action in actions {
             match action {
                 Action::SetTitle(title) => self.title = title,
@@ -100,14 +53,11 @@ impl UIApp {
     }
 
     fn draw_view(&mut self, piet: &mut Piet) {
-        self.ctx.map_view(self.root_view, &mut |view, ctx| {
-            view.draw(DrawContext {
-                id: self.root_view,
-                drawer: piet,
-                size: self.size,
-                ctx,
-            })
-        });
+        self.root_view.draw(DrawContext {
+            drawer: piet,
+            size: self.size,
+            ctx: &mut self.ctx,
+        })
     }
 
     fn draw_debug_data(&mut self, piet: &mut Piet) {
@@ -131,7 +81,7 @@ impl UIApp {
     }
 }
 
-impl WinHandler for UIApp {
+impl<V: View + 'static> WinHandler for UIApp<V> {
     fn connect(&mut self, handle: &WindowHandle) {
         self.handle = handle.clone();
     }
@@ -141,12 +91,8 @@ impl WinHandler for UIApp {
     }
 
     fn paint(&mut self, piet: &mut Piet, _: &Region) {
-        self.add_update_event_job();
-
-        self.process_event_queue();
-
         // TODO
-        self.update_window_data(vec![]);
+        self.update_window_data();
 
         self.clear_surface(piet);
 
@@ -190,26 +136,25 @@ impl WinHandler for UIApp {
     }
 
     fn mouse_down(&mut self, event: &MouseEvent) {
-        self.ctx.pressed_mb.remove(&event.button);
-        let mut views = vec![];
-        for (key, view_state) in self.ctx.view_states.iter() {
-            if view_state.layout.intersects(event.pos) {
-                views.push(*key);
-            }
-        }
-        self.event_queue.push(EventJob {
-            event: Event::MousePress(event.button),
-            views,
-        })
+        self.ctx.pressed_mb.insert(event.button, true);
+        self.root_view.process_event(
+            &Event::MousePress {
+                button: event.button,
+                pos: event.pos,
+            },
+            &mut self.ctx,
+        );
     }
 
     fn mouse_up(&mut self, event: &MouseEvent) {
-        if let Some((_, views)) = self.ctx.pressed_mb.remove(&event.button) {
-            self.event_queue.push(EventJob {
-                event: Event::MouseUnpress(event.button),
-                views,
-            });
-        }
+        self.ctx.pressed_mb.insert(event.button, false);
+        self.root_view.process_event(
+            &Event::MouseUnpress {
+                button: event.button,
+                pos: event.pos,
+            },
+            &mut self.ctx,
+        );
     }
 
     fn timer(&mut self, id: TimerToken) {
