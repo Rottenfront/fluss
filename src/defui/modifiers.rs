@@ -61,6 +61,6 @@ impl<V: View, F: Fn(&mut Context, MouseButton, Point)> View for Clickable<V, F> 
     }
 
     fn is_flexible(&self) -> bool {
-        true
+        self.child.is_flexible()
     }
 }

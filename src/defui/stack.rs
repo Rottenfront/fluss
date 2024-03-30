@@ -18,7 +18,8 @@ pub struct Stack {
     id: ViewId,
     direction: StackDirection,
     views: Vec<Box<dyn View>>,
-    pressed_mb: HashMap<MouseButton, usize>,
+    /// Saves the last target of MousePress event
+    pressed_mb_target: HashMap<MouseButton, usize>,
 }
 
 impl Stack {
@@ -27,7 +28,7 @@ impl Stack {
             id: new_id(),
             direction,
             views,
-            pressed_mb: HashMap::new(),
+            pressed_mb_target: HashMap::new(),
         }
     }
     pub fn vstack(views: Vec<Box<dyn View>>) -> Self {
@@ -115,7 +116,7 @@ impl Stack {
         } else {
             for (id, view) in self.views.iter_mut().enumerate() {
                 if let Some(true) = view.get_layout(ctx).map(|layout| layout.intersects(*pos)) {
-                    self.pressed_mb.insert(*button, id);
+                    self.pressed_mb_target.insert(*button, id);
                     return view.process_event(
                         &Event::MousePress {
                             button: *button,
@@ -130,7 +131,7 @@ impl Stack {
     }
 
     fn process_mouse_unpress(&mut self, event: &Event, ctx: &mut Context) -> bool {
-        let Event::MouseUnpress { button, .. } = event else {
+        let Event::MouseUnpress { button, pos } = event else {
             return false;
         };
         if self.direction == StackDirection::Depth {
@@ -140,11 +141,24 @@ impl Stack {
             }
             processed
         } else {
-            if let Some(id) = self.pressed_mb.remove(button) {
-                self.views[id].process_event(event, ctx)
-            } else {
-                false
-            }
+            let (current_target_id, processed) = 'out: {
+                for (id, view) in self.views.iter_mut().enumerate() {
+                    if let Some(true) = view.get_layout(ctx).map(|layout| layout.intersects(*pos)) {
+                        break 'out (id as isize, view.process_event(&event, ctx));
+                    }
+                }
+                (-1, false)
+            };
+            processed
+                || if let Some(id) = self.pressed_mb_target.remove(button) {
+                    if id as isize != current_target_id {
+                        self.views[id].process_event(event, ctx)
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                }
         }
     }
 }
