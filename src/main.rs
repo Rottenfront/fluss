@@ -28,7 +28,6 @@ fn main() {
                     bind(Font::MONOSPACE),
                 )
             }
-
         },
         WindowProperties {
             title: "wtf".into(),

@@ -60,20 +60,31 @@ impl<V: View + 'static> UIApp<V> {
         })
     }
 
-    fn draw_debug_data(&mut self, piet: &mut Piet) {
+    fn draw_debug_data(&mut self, piet: &mut Piet, before_draw_time: Instant) {
         let now = Instant::now();
-        let msg = format!("{}ms", (now - self.last_time).whole_milliseconds());
+        let full_frame = format!("{}ms", (now - self.last_time).whole_milliseconds());
+        let just_draw = format!("{}micros", (now - before_draw_time).whole_microseconds());
 
         self.last_time = now;
+
         let layout = piet
             .text()
-            .new_text_layout(msg)
+            .new_text_layout(full_frame)
             .font(FontFamily::MONOSPACE, 14.0)
             .text_color(Color::WHITE)
             .build()
             .unwrap();
 
         piet.draw_text(&layout, (0.0, 0.0));
+        let layout = piet
+            .text()
+            .new_text_layout(just_draw)
+            .font(FontFamily::MONOSPACE, 14.0)
+            .text_color(Color::WHITE)
+            .build()
+            .unwrap();
+
+        piet.draw_text(&layout, (100.0, 0.0));
     }
 
     fn after_draw(&mut self, _piet: &mut Piet) {
@@ -91,14 +102,15 @@ impl<V: View + 'static> WinHandler for UIApp<V> {
     }
 
     fn paint(&mut self, piet: &mut Piet, _: &Region) {
-        // TODO
+        let before_draw = Instant::now();
+
         self.update_window_data();
 
         self.clear_surface(piet);
 
         self.draw_view(piet);
 
-        self.draw_debug_data(piet);
+        self.draw_debug_data(piet, before_draw);
 
         self.after_draw(piet);
     }
