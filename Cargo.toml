@@ -1,15 +1,6 @@
 [workspace]
 members = [
     ".",
-    "shell",
-    "piet/piet",
-    "piet/piet-cairo",
-    "piet/piet-common",
-    "piet/piet-coregraphics",
-    "piet/piet-direct2d",
-    "piet/piet-web",
-    "piet/piet-web/examples/basic",
-    "piet/piet-svg",
 ]
 
 [package]
@@ -22,9 +13,16 @@ edition = "2021"
 [dependencies]
 winit = { version = "0.29" }
 flo_binding = "2"
-shell = { path = "shell" }
 tracing-subscriber = { version = "0.3.16", features = ["env-filter"] }
 time = "0.3.20"
+
+iced_wgpu = "0.12"
+pollster = "0.3"
+
+cfg-if = "1.0.0"
+log = "0.4.21"
+env_logger = "0.11.3"
+
 
 [profile.release]
 opt-level = 3
