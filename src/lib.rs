@@ -1,4 +1,4 @@
-// 
+//
 // use fluss::{defui::*, hstack, vstack, zstack};
 //
 // fn main() {
@@ -36,10 +36,12 @@
 //     )
 // }
 
+//! I PREFIX MEANS ICED STRUCTURE
+
 use std::time::{Duration, Instant};
 
 use winit::{
-    event::{Event as WEvent, WindowEvent, Modifiers, KeyEvent},
+    event::{Event as WEvent, KeyEvent, Modifiers, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
@@ -47,7 +49,7 @@ use winit::{
 use iced_wgpu::core::Renderer as CoreRenderer;
 use iced_wgpu::Backend;
 use iced_wgpu::{
-    core::{renderer::Quad, Border, Color, Rectangle, Size},
+    core::{renderer::Quad, Border, Color, Rectangle, Size as ISize},
     graphics::{Primitive, Viewport},
     primitive::Custom,
     wgpu, Renderer, Settings,
@@ -74,21 +76,17 @@ struct UIApp<V: View + 'static> {
 mod app;
 mod context;
 mod event;
-mod filler;
-mod modifiers;
-mod stack;
-mod text;
 mod view;
+mod views;
 
 pub use context::*;
 pub use event::*;
-pub use filler::*;
-pub use modifiers::*;
-pub use stack::*;
-pub use text::*;
 pub use view::*;
+pub use views::*;
 
 pub use flo_binding::{bind, Binding, Bound, MutableBound};
+
+pub use kurbo::*;
 
 use std::any::Any;
 
@@ -158,8 +156,6 @@ macro_rules! vstack {
 //     app.run(None);
 // }
 
-
-#[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub async fn run() {
     env_logger::init();
 
@@ -339,7 +335,7 @@ pub async fn run() {
                             wgpu::TextureFormat::Bgra8UnormSrgb,
                             &view,
                             primitives,
-                            &Viewport::with_physical_size(Size::new(width, height), scale),
+                            &Viewport::with_physical_size(ISize::new(width, height), scale),
                             &[],
                         );
                         &[] as &[Primitive<Custom>]
@@ -347,7 +343,6 @@ pub async fn run() {
                     queue.submit(std::iter::once(encoder.finish()));
                     output.present();
                 }
-
             }
 
             window_target.set_control_flow(ControlFlow::WaitUntil(

@@ -1,22 +1,25 @@
 use super::*;
-use shell::{kurbo::Point, MouseButton};
+pub use winit::{event::MouseButton, window::CursorIcon};
 
-pub enum Event {
-    /// being called every frame
-    Update,
-    MousePress {
-        button: MouseButton,
-        pos: Point,
-    },
-    MouseUnpress {
-        button: MouseButton,
-        pos: Point,
-    },
+pub struct MouseUnpress {
+    button: MouseButton,
+    pos: Point,
+}
+
+pub struct MousePress {
+    button: MouseButton,
+    pos: Point,
+}
+
+pub struct ScrollEvent {
+    pos: Point,
+    delta: Vec2,
+    sum_delta: Vec2,
 }
 
 pub enum Action {
     Quit,
     SetTitle(String),
-    SetCursor(Cursor),
+    SetCursor(CursorIcon),
     SetBackgroundColor(Color),
 }
