@@ -1,7 +1,6 @@
 use super::*;
-use iced_wgpu::{core::{Point, Size, Transformation, Vec2}, Renderer};
 
-use std::{collections::HashMap, hash::Hash, sync::{atomic::AtomicUsize, Mutex}};
+use std::{collections::HashMap, hash::Hash, sync::Mutex};
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct ViewId(pub(crate) usize);
@@ -12,37 +11,35 @@ impl Hash for ViewId {
     }
 }
 
-static mut LAST_VIEW_ID: Mutex<usize> = Mutex::new(0);
+static LAST_VIEW_ID: Mutex<usize> = Mutex::new(0);
 
 pub fn new_id() -> ViewId {
-    unsafe {
-        let mut last_id = LAST_VIEW_ID.lock().unwrap();
-        last_id += 1;
-        ViewId(*last_id)
-    }
+    let mut last_id = LAST_VIEW_ID.lock().unwrap();
+    *last_id += 1;
+    ViewId(*last_id)
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct Layout {
-    offset: Transformation,
+    offset: Transform,
     size: Size,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub(crate) struct ViewState {
     pub(crate) layout: Layout,
     pub(crate) parent: Option<ViewId>,
 }
 
 impl Layout {
-    pub fn new(offset: Transformation, size: Size) -> Self {
+    pub fn new(offset: Transform, size: Size) -> Self {
         Self { offset, size }
     }
 
     pub fn intersects(&self, point: Point) -> bool {
         let x = self.size.width;
         let y = self.size.height;
-        let point = point.to_vec2() - self.offset.translation();
+        let point = point.to_vec2() - self.offset.translation;
         let negative_point = -self.size.to_vec2() + point;
         let vectors = [
             Vec2::new(x, 0.0),
@@ -118,8 +115,8 @@ impl Context {
     }
 }
 
-pub struct DrawContext<'a, 'b, 'c> {
+pub struct DrawContext<'a, 'b> {
     pub drawer: &'a mut Renderer,
-    pub ctx: &'c mut Context,
+    pub ctx: &'b mut Context,
     pub size: Size,
 }

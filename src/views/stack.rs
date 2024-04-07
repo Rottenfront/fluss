@@ -197,3 +197,45 @@ impl View for Stack {
         true
     }
 }
+
+#[macro_export]
+macro_rules! zstack {
+    // The pattern for a single `eval`
+    {$($view:expr),+} => {
+        {
+            let mut views = vec![];
+            $(
+                views.push(Box::new($view) as Box<(dyn View + 'static)>);
+            )+
+            Stack::zstack(views)
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! hstack {
+    // The pattern for a single `eval`
+    {$($view:expr),+} => {
+        {
+            let mut views = vec![];
+            $(
+                views.push(Box::new($view) as Box<(dyn View + 'static)>);
+            )+
+            Stack::hstack(views)
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! vstack {
+    // The pattern for a single `eval`
+    {$($view:expr),+} => {
+        {
+            let mut views = vec![];
+            $(
+                views.push(Box::new($view) as Box<(dyn View + 'static)>);
+            )+
+            Stack::vstack(views)
+        }
+    };
+}

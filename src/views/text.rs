@@ -1,11 +1,4 @@
-use super::*;
-use shell::{
-    kurbo::Size,
-    piet::{
-        Color, FontFamily, FontStyle, FontWeight, Piet, RenderContext, Text, TextAttribute,
-        TextLayout, TextLayoutBuilder,
-    },
-};
+use crate::*;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Font {

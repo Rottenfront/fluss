@@ -7,11 +7,6 @@ use shell::{
 };
 use time::Instant;
 
-struct EventJob {
-    event: Event,
-    views: Vec<ViewId>,
-}
-
 pub struct UIApp<V: View + 'static> {
     handle: WindowHandle,
     size: Size,

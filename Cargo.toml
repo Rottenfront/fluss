@@ -1,7 +1,5 @@
 [workspace]
-members = [
-    ".",
-]
+members = ["."]
 
 [package]
 name = "fluss"
@@ -11,13 +9,17 @@ edition = "2021"
 [features]
 
 [dependencies]
-winit = { version = "0.29" }
+winit = { version = "0.29", default-features = false, features = [
+    "rwh_05",
+    "wayland",
+] }
+# winit = { git = "https://github.com/iced-rs/winit.git", rev = "592bd152f6d5786fae7d918532d7db752c0d164f" }
 flo_binding = "2"
 tracing-subscriber = { version = "0.3.16", features = ["env-filter"] }
 time = "0.3.20"
 
 kurbo = "0.11"
-iced_wgpu = "0.12"
+iced_wgpu = { path = "../iced/wgpu", features = ["geometry", "image", "svg"] }
 
 pollster = "0.3"
 
