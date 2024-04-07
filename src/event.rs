@@ -17,6 +17,10 @@ pub struct ScrollEvent {
     pub sum_delta: Vec2,
 }
 
+pub struct KeyboardEvent {}
+
+pub struct ImeEvent {}
+
 pub enum Action {
     Quit,
     SetTitle(String),
