@@ -26,7 +26,7 @@ also possible to add piet backend.
 
 - [ ] Tabbing system
 - [ ] Editor space splitter (vertical and horizontal)
-- [ ] Abstract tab type (to implement markdown & html preview)
+- [ ] Abstract tab type (to implement markdown & html preview, settings and extension manager)
 - [ ] Left, bottom, right docks for tools
 - [ ] Toolbar with buttons and bottom bar with text widgets, tooltips are required
 - [ ] Top-level windows (hovering, completion, toltips)
@@ -45,8 +45,8 @@ also possible to add piet backend.
   - winit is used as an example of event system for GUI widgets. To find the
     event destination, focus system (for keyboard) and cascade search
     (for mouse) will be used
-  - Should be identical to rui/cushy/gpui2. Main widgets list will be based on
-    SwiftUI widget's purpose and appearance list
+  - Should be identical to RUI/SwiftUI.
+    Main widgets list will be based on SwiftUI widget's purpose and appearance list
 
 ### Modules
 
