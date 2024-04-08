@@ -1,4 +1,4 @@
-workspace = { members = ["examples/hello"] }
+# workspace = { members = ["examples/hello"] }
 
 [package]
 name = "fluss-macro"

@@ -3,11 +3,10 @@ use std::borrow::Cow;
 use iced_wgpu::{
     core::{
         image::Renderer as _, renderer::Quad as IQuad, svg::Renderer as _, text::Renderer as _,
-        Border, Rectangle, Renderer as CoreRenderer, Size as ISize,
+        Border, Pixels, Rectangle, Renderer as CoreRenderer, Size as ISize,
     },
-    graphics::{mesh::Renderer as MeshRenderer, Mesh, Primitive, Viewport},
-    primitive::Custom,
-    wgpu, Renderer as IcedRenderer,
+    graphics::{mesh::Renderer as MeshRenderer, Mesh, Viewport},
+    wgpu, Backend, Renderer as IcedRenderer, Settings,
 };
 use winit::dpi::PhysicalSize;
 use winit::window::Window;
@@ -83,122 +82,154 @@ impl RectQuad {
 }
 
 pub struct Renderer {
-    pub renderer: IcedRenderer,
-    pub device: wgpu::Device,
-    pub queue: wgpu::Queue,
-    pub surface: wgpu::Surface,
-    pub config: wgpu::SurfaceConfiguration,
+    renderer: IcedRenderer,
+    viewport: Viewport,
+    device: wgpu::Device,
+    queue: wgpu::Queue,
+    surface: wgpu::Surface,
+    texture_format: wgpu::TextureFormat,
 
-    pub width: u32,
-    pub height: u32,
-    pub scale: f64,
+    width: u32,
+    height: u32,
+    scale: f64,
 
     bounds: Vec<Rect>,
     transforms: Vec<Transform>,
 }
 
 impl Renderer {
-    pub async fn new(window: &Window) -> Self {
-        // The instance is a handle to our GPU
-        // BackendBit::PRIMARY => Vulkan + Metal + DX12 + Browser WebGPU
+    pub fn new(window: &Window) -> Self {
+        let physical_size = window.inner_size();
+        let viewport = Viewport::with_physical_size(
+            ISize::new(physical_size.width, physical_size.height),
+            window.scale_factor(),
+        );
+        // Initialize wgpu
+        let default_backend = wgpu::Backends::PRIMARY;
+
+        let backend = wgpu::util::backend_bits_from_env().unwrap_or(default_backend);
+
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::all(),
+            backends: backend,
             ..Default::default()
         });
-        let surface = unsafe { instance.create_surface(window) }.unwrap();
+        let surface = unsafe { instance.create_surface(&window) }.unwrap();
 
-        let adapter = instance
-            .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::default(),
-                compatible_surface: Some(&surface),
-                force_fallback_adapter: false,
-            })
-            .await
-            .unwrap();
+        let (format, adapter, device, queue) = pollster::block_on(async {
+            let adapter =
+                wgpu::util::initialize_adapter_from_env_or_default(&instance, Some(&surface))
+                    .await
+                    .expect("Create adapter");
 
-        let size = window.inner_size();
+            let adapter_features = adapter.features();
 
-        let (device, queue) = adapter
-            .request_device(
-                &wgpu::DeviceDescriptor {
-                    label: None,
-                    features: wgpu::Features::empty(),
-                    // WebGL doesn't support all of wgpu's features, so if
-                    // we're building for the web we'll have to disable some.
-                    limits: if cfg!(target_arch = "wasm32") {
-                        wgpu::Limits::downlevel_webgl2_defaults()
-                    } else {
-                        wgpu::Limits::default()
+            #[cfg(target_arch = "wasm32")]
+            let needed_limits =
+                wgpu::Limits::downlevel_webgl2_defaults().using_resolution(adapter.limits());
+
+            #[cfg(not(target_arch = "wasm32"))]
+            let needed_limits = wgpu::Limits::default();
+
+            let capabilities = surface.get_capabilities(&adapter);
+
+            let (device, queue) = adapter
+                .request_device(
+                    &wgpu::DeviceDescriptor {
+                        label: None,
+                        features: adapter_features & wgpu::Features::default(),
+                        limits: needed_limits,
                     },
-                },
-                // Some(&std::path::Path::new("trace")), // Trace path
-                None,
+                    None,
+                )
+                .await
+                .expect("Request device");
+
+            (
+                capabilities
+                    .formats
+                    .iter()
+                    .copied()
+                    .find(wgpu::TextureFormat::is_srgb)
+                    .or_else(|| capabilities.formats.first().copied())
+                    .expect("Get preferred format"),
+                adapter,
+                device,
+                queue,
             )
-            .await
-            .unwrap();
+        });
 
-        let surface_caps = surface.get_capabilities(&adapter);
-        // Shader code in this tutorial assumes an Srgb surface texture. Using a different
-        // one will result all the colors comming out darker. If you want to support non
-        // Srgb surfaces, you'll need to account for that when drawing to the frame.
-        let surface_format = surface_caps
-            .formats
-            .iter()
-            .copied()
-            .find(|f| f.is_srgb())
-            .unwrap_or(surface_caps.formats[0]);
-        let config = wgpu::SurfaceConfiguration {
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: surface_format,
-            width: size.width,
-            height: size.height,
-            present_mode: surface_caps.present_modes[0],
-            alpha_mode: surface_caps.alpha_modes[0],
-            view_formats: vec![],
-        };
-        surface.configure(&device, &config);
-        let settings = iced_wgpu::Settings {
-            ..Default::default()
-        };
-        let font = settings.default_font.clone();
-        let font_size = settings.default_text_size;
-
-        let backend = iced_wgpu::Backend::new(
-            &adapter,
+        surface.configure(
             &device,
-            &queue,
-            settings,
-            wgpu::TextureFormat::Bgra8Unorm,
+            &wgpu::SurfaceConfiguration {
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                format,
+                width: physical_size.width,
+                height: physical_size.height,
+                present_mode: wgpu::PresentMode::AutoVsync,
+                alpha_mode: wgpu::CompositeAlphaMode::Auto,
+                view_formats: vec![],
+            },
         );
 
-        let renderer = iced_wgpu::Renderer::new(backend, font, font_size);
+        // Initialize scene and GUI controls
+        let renderer = IcedRenderer::new(
+            Backend::new(&adapter, &device, &queue, Settings::default(), format),
+            Font::default(),
+            Pixels(16.0),
+        );
+
         Self {
             renderer,
+            viewport,
             device,
             queue,
             surface,
-            config,
+            texture_format: format,
 
-            width: size.width,
-            height: size.height,
-            scale: 1.0,
+            width: physical_size.width,
+            height: physical_size.height,
+            scale: window.scale_factor(),
 
             bounds: Vec::new(),
             transforms: Vec::new(),
         }
     }
 
-    pub fn resize(&mut self, size: PhysicalSize<u32>) {
+    pub fn resize(&mut self, size: PhysicalSize<u32>, scale_factor: f64) {
         self.width = size.width;
         self.height = size.height;
-        println!("Resizing to {}x{}", size.width, size.height);
-        self.config.width = size.width;
-        self.config.height = size.height;
-        self.surface.configure(&self.device, &self.config);
+        self.scale = scale_factor;
+        self.viewport =
+            Viewport::with_physical_size(ISize::new(size.width, size.height), scale_factor);
+
+        self.surface.configure(
+            &self.device,
+            &wgpu::SurfaceConfiguration {
+                format: self.texture_format,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                width: size.width,
+                height: size.height,
+                present_mode: wgpu::PresentMode::AutoVsync,
+                alpha_mode: wgpu::CompositeAlphaMode::Auto,
+                view_formats: vec![],
+            },
+        );
     }
 
     pub fn size(&self) -> Size {
         (self.width as _, self.height as _).into()
+    }
+
+    pub fn clear(&mut self) {
+        self.renderer.clear();
+    }
+
+    pub fn current_transform(&self) -> Transform {
+        let mut transform = Transform::default();
+        for trans in &self.transforms {
+            transform *= trans.clone();
+        }
+        transform
     }
 
     pub fn present(&mut self) {
@@ -210,38 +241,43 @@ impl Renderer {
             self.end_layer();
         }
 
-        let output = match self.surface.get_current_texture() {
-            Ok(output) => output,
-            Err(_) => {
-                return;
+        match self.surface.get_current_texture() {
+            Ok(frame) => {
+                let mut encoder = self
+                    .device
+                    .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+
+                let view = frame
+                    .texture
+                    .create_view(&wgpu::TextureViewDescriptor::default());
+
+                // And then iced on top
+                self.renderer.with_primitives(|backend, primitive| {
+                    backend.present::<&str>(
+                        &self.device,
+                        &self.queue,
+                        &mut encoder,
+                        None,
+                        frame.texture.format(),
+                        &view,
+                        primitive,
+                        &self.viewport,
+                        &[],
+                    );
+                });
+                // Then we submit the work
+                self.queue.submit(Some(encoder.finish()));
+                frame.present();
             }
-        };
-        let view = output
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
-
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Render Encoder"),
-            });
-
-        self.renderer.with_primitives(|backend, primitives| {
-            backend.present::<&str>(
-                &self.device,
-                &self.queue,
-                &mut encoder,
-                None,
-                wgpu::TextureFormat::Bgra8Unorm,
-                &view,
-                primitives,
-                &Viewport::with_physical_size(ISize::new(self.width, self.height), self.scale),
-                &[],
-            );
-            &[] as &[Primitive<Custom>]
-        });
-        self.queue.submit(std::iter::once(encoder.finish()));
-        output.present();
+            Err(error) => match error {
+                wgpu::SurfaceError::OutOfMemory => {
+                    panic!("Swapchain error: {error}. Rendering cannot continue.")
+                }
+                _ => {
+                    return;
+                }
+            },
+        }
     }
 
     pub fn fill_rect(&mut self, rect: RectQuad) {

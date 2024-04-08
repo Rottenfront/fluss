@@ -17,6 +17,10 @@ pub struct ScrollEvent {
     pub sum_delta: Vec2,
 }
 
+pub struct MouseMoveEvent {
+    pub pos: Point,
+}
+
 pub struct KeyboardEvent {}
 
 pub struct ImeEvent {}

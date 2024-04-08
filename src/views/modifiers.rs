@@ -1,10 +1,4 @@
-use super::*;
-
-use shell::{
-    kurbo::{Point, Size},
-    piet::{Piet, RenderContext},
-    MouseButton,
-};
+use crate::*;
 
 pub struct Clickable<V: View, F: Fn(&mut Context, MouseButton, Point)> {
     id: ViewId,
@@ -23,7 +17,7 @@ impl<V: View, F: Fn(&mut Context, MouseButton, Point)> Clickable<V, F> {
 }
 
 impl<V: View, F: Fn(&mut Context, MouseButton, Point)> View for Clickable<V, F> {
-    fn draw(&self, draw_ctx: DrawContext<'_, '_, '_>) {
+    fn draw(&self, draw_ctx: DrawContext<'_, '_>) {
         let DrawContext {
             drawer,
             size: max_size,
@@ -42,25 +36,64 @@ impl<V: View, F: Fn(&mut Context, MouseButton, Point)> View for Clickable<V, F> 
         self.id
     }
 
-    fn process_event(&mut self, event: &Event, ctx: &mut Context) -> bool {
-        match event {
-            Event::MousePress { button, pos } => {
-                (self.on_click)(ctx, *button, *pos);
-                true
-            }
-            Event::MouseUnpress { .. } => {
-                println!("unpress");
-                true
-            }
-            _ => false,
-        }
-    }
-
-    fn get_min_size(&self, drawer: &mut Piet, ctx: &mut Context) -> Size {
-        self.child.get_min_size(drawer, ctx)
+    fn get_min_size(&self, ctx: &mut Context) -> Size {
+        self.child.get_min_size(ctx)
     }
 
     fn is_flexible(&self) -> bool {
         self.child.is_flexible()
+    }
+
+    fn update(&mut self, ctx: &mut Context) {
+        self.child.update(ctx)
+    }
+
+    fn mouse_press(&mut self, event: &MousePress, ctx: &mut Context) -> bool {
+        (self.on_click)(ctx, event.button, event.pos);
+        true
+    }
+
+    fn mouse_unpress(&mut self, event: &MouseUnpress, ctx: &mut Context) -> bool {
+        false
+    }
+
+    fn mouse_focus_lost(&mut self, ctx: &mut Context) -> bool {
+        false
+    }
+
+    fn mouse_focus_gained(&mut self, ctx: &mut Context) -> bool {
+        false
+    }
+
+    fn scroll(&mut self, event: &ScrollEvent, ctx: &mut Context) -> bool {
+        false
+    }
+
+    fn keyboard_focus_lost(&mut self, ctx: &mut Context) -> bool {
+        false
+    }
+
+    fn keyboard_focus_gained(&mut self, ctx: &mut Context) -> bool {
+        false
+    }
+
+    fn keyboard_event(&mut self, event: &KeyboardEvent, ctx: &mut Context) -> bool {
+        false
+    }
+
+    fn input_method(&mut self, event: &ImeEvent, ctx: &mut Context) -> bool {
+        false
+    }
+
+    fn mouse_move(&mut self, relative_pos: &Point, ctx: &mut Context) -> bool {
+        false
+    }
+
+    fn is_scrollable(&self) -> bool {
+        false
+    }
+
+    fn has_ime(&self) -> bool {
+        false
     }
 }

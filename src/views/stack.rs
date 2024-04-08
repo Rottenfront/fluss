@@ -1,11 +1,6 @@
 use std::collections::HashMap;
 
-use super::*;
-use shell::{
-    kurbo::{Affine, Size},
-    piet::{Piet, RenderContext},
-    MouseButton,
-};
+use crate::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StackDirection {
@@ -41,42 +36,39 @@ impl Stack {
         Self::new(StackDirection::Depth, views)
     }
 
-    fn draw_vertical(&self, drawer: &mut Piet, max_size: Size, ctx: &mut Context) {
+    fn draw_vertical(&self, drawer: &mut Renderer, max_size: Size, ctx: &mut Context) {
         let height = max_size.height / (self.views.len() as f64);
         let mut current_offset = 0.0;
         for view in &self.views {
             view.update_parent(self.get_id(), ctx);
-            let _ = drawer.save();
-            drawer.transform(Affine::translate((0.0, current_offset)));
+            drawer.start_transformation(Transform::translate((0.0, current_offset)));
             view.draw(DrawContext {
                 drawer,
                 size: Size::new(max_size.width, height),
                 ctx,
             });
             current_offset += height;
-            let _ = drawer.restore();
+            drawer.end_transformation();
         }
     }
 
-    fn draw_horizontal(&self, drawer: &mut Piet, max_size: Size, ctx: &mut Context) {
+    fn draw_horizontal(&self, drawer: &mut Renderer, max_size: Size, ctx: &mut Context) {
         let width = max_size.width / (self.views.len() as f64);
         let mut current_offset = 0.0;
         for view in &self.views {
             view.update_parent(self.get_id(), ctx);
-            let _ = drawer.save();
-            drawer.transform(Affine::translate((current_offset, 0.0)));
+            drawer.start_transformation(Transform::translate((current_offset, 0.0)));
             view.draw(DrawContext {
                 drawer,
                 size: Size::new(width, max_size.height),
                 ctx,
             });
             current_offset += width;
-
-            let _ = drawer.restore();
+            drawer.end_transformation();
         }
     }
 
-    fn draw_depth(&self, drawer: &mut Piet, max_size: Size, ctx: &mut Context) {
+    fn draw_depth(&self, drawer: &mut Renderer, max_size: Size, ctx: &mut Context) {
         for view in &self.views {
             view.update_parent(self.get_id(), ctx);
             view.draw(DrawContext {
@@ -87,78 +79,11 @@ impl Stack {
         }
     }
 
-    fn draw_views(&self, drawer: &mut Piet, max_size: Size, ctx: &mut Context) {
+    fn draw_views(&self, drawer: &mut Renderer, max_size: Size, ctx: &mut Context) {
         match self.direction {
             StackDirection::Vertical => self.draw_vertical(drawer, max_size, ctx),
             StackDirection::Horizontal => self.draw_horizontal(drawer, max_size, ctx),
             StackDirection::Depth => self.draw_depth(drawer, max_size, ctx),
-        }
-    }
-
-    fn process_update(&mut self, ctx: &mut Context) -> bool {
-        let mut processed = false;
-        for view in &mut self.views {
-            processed |= view.process_event(&Event::Update, ctx);
-        }
-        processed
-    }
-
-    fn process_mouse_press(&mut self, event: &Event, ctx: &mut Context) -> bool {
-        let Event::MousePress { button, pos } = event else {
-            return false;
-        };
-        if self.direction == StackDirection::Depth {
-            let mut processed = false;
-            for view in &mut self.views {
-                processed |= view.process_event(event, ctx);
-            }
-            processed
-        } else {
-            for (id, view) in self.views.iter_mut().enumerate() {
-                if let Some(true) = view.get_layout(ctx).map(|layout| layout.intersects(*pos)) {
-                    self.pressed_mb_target.insert(*button, id);
-                    return view.process_event(
-                        &Event::MousePress {
-                            button: *button,
-                            pos: *pos,
-                        },
-                        ctx,
-                    );
-                }
-            }
-            false
-        }
-    }
-
-    fn process_mouse_unpress(&mut self, event: &Event, ctx: &mut Context) -> bool {
-        let Event::MouseUnpress { button, pos } = event else {
-            return false;
-        };
-        if self.direction == StackDirection::Depth {
-            let mut processed = false;
-            for view in &mut self.views {
-                processed |= view.process_event(event, ctx);
-            }
-            processed
-        } else {
-            let (current_target_id, processed) = 'out: {
-                for (id, view) in self.views.iter_mut().enumerate() {
-                    if let Some(true) = view.get_layout(ctx).map(|layout| layout.intersects(*pos)) {
-                        break 'out (id as isize, view.process_event(&event, ctx));
-                    }
-                }
-                (-1, false)
-            };
-            processed
-                || if let Some(id) = self.pressed_mb_target.remove(button) {
-                    if id as isize != current_target_id {
-                        self.views[id].process_event(event, ctx)
-                    } else {
-                        false
-                    }
-                } else {
-                    false
-                }
         }
     }
 }
@@ -181,20 +106,107 @@ impl View for Stack {
         self.id
     }
 
-    fn process_event(&mut self, event: &Event, ctx: &mut Context) -> bool {
-        match event {
-            Event::MousePress { .. } => self.process_mouse_press(event, ctx),
-            Event::MouseUnpress { .. } => self.process_mouse_unpress(event, ctx),
-            Event::Update => self.process_update(ctx),
-        }
-    }
-
-    fn get_min_size(&self, _drawer: &mut Piet, ctx: &mut Context) -> Size {
+    fn get_min_size(&self, ctx: &mut Context) -> Size {
         Size::default()
     }
 
     fn is_flexible(&self) -> bool {
         true
+    }
+
+    fn update(&mut self, ctx: &mut Context) {
+        for view in &mut self.views {
+            view.update(ctx);
+        }
+    }
+
+    fn mouse_press(&mut self, event: &MousePress, ctx: &mut Context) -> bool {
+        let MousePress { button, pos } = event;
+        if self.direction == StackDirection::Depth {
+            let mut processed = false;
+            for view in &mut self.views {
+                processed |= view.mouse_press(event, ctx);
+            }
+            processed
+        } else {
+            for (id, view) in self.views.iter_mut().enumerate() {
+                if let Some(true) = view.get_layout(ctx).map(|layout| layout.intersects(*pos)) {
+                    self.pressed_mb_target.insert(*button, id);
+                    return view.mouse_press(event, ctx);
+                }
+            }
+            false
+        }
+    }
+
+    fn mouse_unpress(&mut self, event: &MouseUnpress, ctx: &mut Context) -> bool {
+        let MouseUnpress { button, pos } = event;
+        if self.direction == StackDirection::Depth {
+            let mut processed = false;
+            for view in &mut self.views {
+                processed |= view.mouse_unpress(event, ctx);
+            }
+            processed
+        } else {
+            let (current_target_id, processed) = 'out: {
+                for (id, view) in self.views.iter_mut().enumerate() {
+                    if let Some(true) = view.get_layout(ctx).map(|layout| layout.intersects(*pos)) {
+                        break 'out (id as isize, view.mouse_unpress(&event, ctx));
+                    }
+                }
+                (-1, false)
+            };
+            processed
+                || if let Some(id) = self.pressed_mb_target.remove(button) {
+                    if id as isize != current_target_id {
+                        self.views[id].mouse_unpress(event, ctx)
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                }
+        }
+    }
+
+    fn mouse_focus_lost(&mut self, ctx: &mut Context) -> bool {
+        todo!()
+    }
+
+    fn mouse_focus_gained(&mut self, ctx: &mut Context) -> bool {
+        todo!()
+    }
+
+    fn scroll(&mut self, event: &ScrollEvent, ctx: &mut Context) -> bool {
+        todo!()
+    }
+
+    fn keyboard_focus_lost(&mut self, ctx: &mut Context) -> bool {
+        todo!()
+    }
+
+    fn keyboard_focus_gained(&mut self, ctx: &mut Context) -> bool {
+        todo!()
+    }
+
+    fn keyboard_event(&mut self, event: &KeyboardEvent, ctx: &mut Context) -> bool {
+        todo!()
+    }
+
+    fn input_method(&mut self, event: &ImeEvent, ctx: &mut Context) -> bool {
+        todo!()
+    }
+
+    fn mouse_move(&mut self, relative_pos: &Point, ctx: &mut Context) -> bool {
+        todo!()
+    }
+
+    fn is_scrollable(&self) -> bool {
+        todo!()
+    }
+
+    fn has_ime(&self) -> bool {
+        todo!()
     }
 }
 

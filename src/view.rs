@@ -31,17 +31,17 @@ pub trait View {
 
     /// true if processed
     fn input_method(&mut self, event: &ImeEvent, ctx: &mut Context) -> bool;
-    
+
     fn mouse_move(&mut self, relative_pos: &Point, ctx: &mut Context) -> bool;
-    
+
     fn update(&mut self, ctx: &mut Context) {}
-    
-    fn get_min_size(&self, drawer: &mut Renderer, ctx: &mut Context) -> Size;
+
+    fn get_min_size(&self, ctx: &mut Context) -> Size;
 
     fn is_flexible(&self) -> bool;
-    
+
     fn is_scrollable(&self) -> bool;
-    
+
     fn has_ime(&self) -> bool;
 }
 

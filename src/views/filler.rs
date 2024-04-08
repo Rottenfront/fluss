@@ -1,8 +1,4 @@
-use super::*;
-use shell::{
-    kurbo::{Rect, Size},
-    piet::{Color, Piet, RenderContext},
-};
+use crate::*;
 pub struct Filler {
     id: ViewId,
     color: fn() -> Color,
@@ -27,22 +23,66 @@ impl View for Filler {
         let offset = drawer.current_transform();
         ctx.set_layout(self.id, Layout::new(offset, max_size));
         let color = (self.color)();
-        drawer.fill(&Rect::from_origin_size((0.0, 0.0), max_size), &color);
+        drawer.fill_rect(RectQuad::new(Point::ZERO, max_size).with_color(color));
     }
 
     fn get_id(&self) -> ViewId {
         self.id
     }
 
-    fn process_event(&mut self, _event: &Event, _ctx: &mut Context) -> bool {
-        false
-    }
-
-    fn get_min_size(&self, _drawer: &mut Piet, _ctx: &mut Context) -> Size {
+    fn get_min_size(&self, _ctx: &mut Context) -> Size {
         Size::default()
     }
 
     fn is_flexible(&self) -> bool {
         true
+    }
+
+    fn mouse_press(&mut self, event: &MousePress, ctx: &mut Context) -> bool {
+        false
+    }
+
+    fn mouse_unpress(&mut self, event: &MouseUnpress, ctx: &mut Context) -> bool {
+        false
+    }
+
+    fn mouse_focus_lost(&mut self, ctx: &mut Context) -> bool {
+        false
+    }
+
+    fn mouse_focus_gained(&mut self, ctx: &mut Context) -> bool {
+        false
+    }
+
+    fn scroll(&mut self, event: &ScrollEvent, ctx: &mut Context) -> bool {
+        false
+    }
+
+    fn keyboard_focus_lost(&mut self, ctx: &mut Context) -> bool {
+        false
+    }
+
+    fn keyboard_focus_gained(&mut self, ctx: &mut Context) -> bool {
+        false
+    }
+
+    fn keyboard_event(&mut self, event: &KeyboardEvent, ctx: &mut Context) -> bool {
+        false
+    }
+
+    fn input_method(&mut self, event: &ImeEvent, ctx: &mut Context) -> bool {
+        false
+    }
+
+    fn mouse_move(&mut self, relative_pos: &Point, ctx: &mut Context) -> bool {
+        false
+    }
+
+    fn is_scrollable(&self) -> bool {
+        false
+    }
+
+    fn has_ime(&self) -> bool {
+        false
     }
 }

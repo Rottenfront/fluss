@@ -1,9 +1,8 @@
-use proc_macro2::{TokenStream};
+use crate::view_args_parser::ViewArgsParser;
+use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use syn::parse::{Parse, ParseStream};
 use syn::Token;
-use syn::token::Token;
-use crate::view_args_parser::ViewArgsParser;
 
 pub(crate) enum ViewParser {
     Func {
@@ -12,18 +11,18 @@ pub(crate) enum ViewParser {
         childs: Vec<ViewParser>,
     },
     Expr(syn::Expr),
-    Append(syn::Expr)
+    Append(syn::Expr),
 }
 
 impl Parse for ViewParser {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         if input.parse::<Token![|]>().is_ok() {
-            return Ok(Self::Append(input.parse::<syn::Expr>().unwrap()))
+            return Ok(Self::Append(input.parse::<syn::Expr>().unwrap()));
         }
 
         if input.peek(syn::token::Brace) {
             if let Ok(expr) = input.parse::<syn::Expr>() {
-                return Ok(Self::Expr(expr))
+                return Ok(Self::Expr(expr));
             }
         }
 
@@ -65,7 +64,7 @@ impl Parse for ViewParser {
                     args,
                     childs: vec![],
                 })
-            }
+            };
         }
 
         Err(syn::Error::new(input.span(), "error when parse macros"))
@@ -75,11 +74,7 @@ impl Parse for ViewParser {
 impl ToTokens for ViewParser {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match &self {
-            ViewParser::Func {
-                name,
-                args,
-                childs
-            } => {
+            ViewParser::Func { name, args, childs } => {
                 if childs.is_empty() {
                     tokens.extend(quote! {
                         {
@@ -108,23 +103,19 @@ impl ToTokens for ViewParser {
                     })
                 }
             }
-            ViewParser::Expr(expr) => {
-                tokens.extend(quote! {
+            ViewParser::Expr(expr) => tokens.extend(quote! {
+                {
+                    #expr
+                }
+            }),
+            ViewParser::Append(expr) => tokens.extend(quote! {
+                {
                     {
-                        #expr
+                        ____childs_extent.extend(#expr);
+                        ____is_appened = true;
                     }
-                })
-            }
-            ViewParser::Append(expr) => {
-                tokens.extend(quote! {
-                    {
-                        {
-                            ____childs_extent.extend(#expr);
-                            ____is_appened = true;
-                        }
-                    }
-                })
-            }
+                }
+            }),
         }
     }
 }
