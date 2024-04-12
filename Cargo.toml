@@ -16,6 +16,9 @@ time = "0.3.20"
 
 kurbo = "0.11"
 iced_wgpu = { path = "../iced/wgpu" }
+iced_tiny_skia = { path = "../iced/tiny_skia" }
+softbuffer = "0.3.2"
+tiny-skia = "0.11"
 
 pollster = "0.3"
 

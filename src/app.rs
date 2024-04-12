@@ -3,9 +3,8 @@ use time::Instant;
 use winit::window::Window;
 
 pub struct UIApp<V: View + 'static> {
-    handle: Window,
+    window: Window,
     renderer: Renderer,
-    last_time: Instant,
     root_view: V,
     ctx: Context,
     title: String,
@@ -21,9 +20,8 @@ impl<V: View + 'static> UIApp<V> {
         let window = Window::new(&event_loop).unwrap();
         let renderer = Renderer::new(&window);
         Self {
-            handle: window,
+            window,
             renderer,
-            last_time: time::Instant::now(),
             root_view,
             ctx: Context::new(),
             title: window_properties.title,
@@ -36,7 +34,7 @@ impl<V: View + 'static> UIApp<V> {
         for action in actions {
             match action {
                 Action::SetTitle(title) => self.title = title,
-                Action::SetCursor(cursor) => self.handle.set_cursor_icon(cursor),
+                Action::SetCursor(cursor) => self.window.set_cursor_icon(cursor),
                 Action::SetBackgroundColor(color) => self.background_color = color,
                 Action::Quit => {}
             }
@@ -89,12 +87,12 @@ impl<V: View + 'static> UIApp<V> {
     }
 
     pub fn request_redraw(&mut self) {
-        self.handle.request_redraw();
+        self.window.request_redraw();
     }
 
     pub fn resize(&mut self) {
         self.renderer
-            .resize(self.handle.inner_size(), self.handle.scale_factor());
+            .resize(self.window.inner_size(), self.window.scale_factor());
     }
 
     pub fn paint(&mut self) {

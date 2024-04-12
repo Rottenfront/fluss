@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, collections::VecDeque};
 
 use iced_wgpu::{
     core::{
@@ -6,7 +6,7 @@ use iced_wgpu::{
         Border, Pixels, Rectangle, Renderer as CoreRenderer, Size as ISize,
     },
     graphics::{mesh::Renderer as MeshRenderer, Mesh, Viewport},
-    wgpu, Backend, Renderer as IcedRenderer, Settings,
+    wgpu, Backend, Primitive, Renderer as IcedRenderer, Settings,
 };
 use winit::dpi::PhysicalSize;
 use winit::window::Window;
@@ -15,7 +15,7 @@ pub use iced_wgpu::{
     core::{
         image::{FilterMethod as ImageFilterMethod, Handle as ImageHandle},
         svg::Handle as SvgHandle,
-        Color, Font, Shadow, Text,
+        Color, Font, Shadow as IShadow, Text,
     },
     graphics::text::{Editor, Paragraph},
 };
@@ -23,15 +23,28 @@ pub use kurbo::{
     Point, Rect, RoundedRect, RoundedRectRadii, Size, TranslateScale as Transform, Vec2,
 };
 
+/// A shadow.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct Shadow {
+    /// The color of the shadow.
+    pub color: Color,
+
+    /// The offset of the shadow.
+    pub offset: Vec2,
+
+    /// The blur radius of the shadow.
+    pub blur_radius: f64,
+}
+
 #[derive(Clone, Copy, Debug, Default)]
 pub struct RectQuad {
-    origin: Point,
-    size: Size,
-    radius: RoundedRectRadii,
-    border_width: f64,
-    color: Color,
-    border_color: Color,
-    shadow: Shadow,
+    pub origin: Point,
+    pub size: Size,
+    pub radius: RoundedRectRadii,
+    pub border_width: f64,
+    pub color: Color,
+    pub border_color: Color,
+    pub shadow: Shadow,
 }
 
 impl RectQuad {
@@ -88,7 +101,11 @@ pub struct Renderer {
     queue: wgpu::Queue,
     surface: wgpu::Surface,
     texture_format: wgpu::TextureFormat,
-
+    // window: softbuffer::Surface,
+    // clip_mask: tiny_skia::Mask,
+    // primitive_stack: VecDeque<Vec<Primitive>>,
+    // background_color: Color,
+    // max_age: u8,
     width: u32,
     height: u32,
     scale: f64,
@@ -216,22 +233,6 @@ impl Renderer {
         );
     }
 
-    pub fn size(&self) -> Size {
-        (self.width as _, self.height as _).into()
-    }
-
-    pub fn clear(&mut self) {
-        self.renderer.clear();
-    }
-
-    pub fn current_transform(&self) -> Transform {
-        let mut transform = Transform::default();
-        for trans in &self.transforms {
-            transform *= trans.clone();
-        }
-        transform
-    }
-
     pub fn present(&mut self) {
         while !self.transforms.is_empty() {
             self.end_transformation();
@@ -280,6 +281,22 @@ impl Renderer {
         }
     }
 
+    pub fn size(&self) -> Size {
+        (self.width as _, self.height as _).into()
+    }
+
+    pub fn clear(&mut self) {
+        self.renderer.clear();
+    }
+
+    pub fn current_transform(&self) -> Transform {
+        let mut transform = Transform::default();
+        for trans in &self.transforms {
+            transform *= trans.clone();
+        }
+        transform
+    }
+
     pub fn fill_rect(&mut self, rect: RectQuad) {
         let quad = IQuad {
             bounds: Rectangle {
@@ -299,7 +316,14 @@ impl Renderer {
                 ]
                 .into(),
             },
-            shadow: rect.shadow,
+            shadow: IShadow {
+                color: rect.shadow.color,
+                offset: iced_wgpu::core::Vector::new(
+                    rect.shadow.offset.x as _,
+                    rect.shadow.offset.y as _,
+                ),
+                blur_radius: rect.shadow.blur_radius as _,
+            },
         };
         self.renderer.fill_quad(quad, rect.color);
     }
