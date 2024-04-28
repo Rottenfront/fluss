@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "fluss-macro"]
+members = [".", "fluss-macro", "skd3d", "skgl", "skmetal", "skvulkan"]
 
 [package]
 name = "fluss"

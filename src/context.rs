@@ -54,21 +54,58 @@ impl Layout {
     }
 }
 
+#[derive(Debug, Default, Clone, Copy)]
+pub struct Modifiers {
+    ctrl: bool,
+    logo: bool,
+    alt: bool,
+    shift: bool,
+}
+
+impl Modifiers {
+    pub fn new(ctrl: bool, logo: bool, alt: bool, shift: bool) -> Self {
+        Self {
+            ctrl,
+            logo,
+            alt,
+            shift,
+        }
+    }
+    pub fn ctrl(&self) -> bool {
+        self.ctrl
+    }
+    pub fn logo(&self) -> bool {
+        self.logo
+    }
+    pub fn alt(&self) -> bool {
+        self.alt
+    }
+    pub fn shift(&self) -> bool {
+        self.shift
+    }
+}
+
+#[derive(Default)]
 pub struct Context {
     pub(super) view_states: HashMap<ViewId, ViewState>,
     pub(super) pointer: Vec2,
     pub(super) pressed_mb: HashMap<MouseButton, bool>,
     pub(super) actions: Vec<Action>,
+    pub(super) need_redraw: bool,
+    pub(super) modifiers: Modifiers,
 }
 
 impl Context {
     pub fn new() -> Self {
-        Context {
-            view_states: HashMap::new(),
-            pointer: Vec2::new(0.0, 0.0),
-            pressed_mb: HashMap::new(),
-            actions: Vec::new(),
-        }
+        Default::default()
+    }
+
+    pub fn modifiers(&self) -> &Modifiers {
+        &self.modifiers
+    }
+
+    pub fn request_redraw(&mut self) {
+        self.need_redraw = true;
     }
 
     pub fn push_action(&mut self, action: Action) {

@@ -1,56 +1,10 @@
-// use fluss::{defui::*, hstack, vstack, zstack};
-//
-// fn main() {
-//     run(
-//         hstack! {
-//             zstack!{
-//                 Filler::new(|| Color::RED),
-//                 TextView::new(
-//                     || "AAAAAAAAA\nAAAAAAAAAAAAAAAAAAAAAA\nAAAAAAAAAAAAAAAAAAAAAA".into(),
-//                     bind(Color::BLACK),
-//                     bind(Font::MONOSPACE),
-//                 )
-//             },
-//             zstack!{
-//                 Filler::new(|| Color::GREEN),
-//                 TextView::new(
-//                     || "AAAAAAAAA\nAAAAAAAAAAAAAAAAAAAAAA\nAAAAAAAAAAAAAAAAAAAAAA".into(),
-//                     bind(Color::BLACK),
-//                     bind(Font::MONOSPACE),
-//                 )
-//             },
-//             vstack!{
-//                 Clickable::new(Filler::new(|| Color::BLUE), |_, _, _| println!("press")),
-//                 TextView::new(
-//                     || "AAAAAAAAA\nAAAAAAAAAAAAAAAAAAAAAA\nAAAAAAAAAAAAAAAAAAAAAA".into(),
-//                     bind(Color::BLACK),
-//                     bind(Font::MONOSPACE),
-//                 )
-//             }
-//         },
-//         WindowProperties {
-//             title: "title".into(),
-//             background_color: Color::GRAY,
-//         },
-//     )
-// }
-
-//! I PREFIX MEANS ICED STRUCTURE
+use std::time::{Duration, Instant};
 
 use app::UIApp;
 use winit::{
     event::{KeyEvent, WindowEvent},
-    event_loop::EventLoop,
+    event_loop::{ControlFlow, EventLoop},
 };
-
-// struct Application {
-//     event_loop: EventLoop<()>,
-//     windows: Vec<AppWindow>,
-// }
-
-// impl AppWindow {
-//     pub fn new<V: View + 'static>(root_view: V, window_properties: WindowProperties) -> Self {}
-// }
 
 mod app;
 mod context;
@@ -85,45 +39,63 @@ pub fn run<V: View + 'static>(view: V, window_properties: WindowProperties) {
 
     let mut app = UIApp::new(&event_loop, view, window_properties);
 
-    let mut resized = false;
+    let mut previous_frame_start = Instant::now();
+    let mut cursor_pos = Point::new(0.0, 0.0);
 
     // Run event loop
     event_loop
         .run(move |event, window_target| {
-            match event {
-                Event::WindowEvent {
-                    event: WindowEvent::RedrawRequested,
-                    ..
-                } => {
-                    if resized {
-                        app.resize();
-                        resized = false;
-                    }
+            let frame_start = Instant::now();
 
-                    app.paint();
-                }
+            match event {
                 Event::WindowEvent { event, .. } => match event {
                     WindowEvent::CursorMoved { position, .. } => {
                         // cursor_position = Some(position);
-                        app.mouse_move(&MouseMoveEvent {
-                            pos: Point::new(position.x, position.y),
-                        });
-                        app.request_redraw();
+                        cursor_pos = Point::new(position.x, position.y);
+                        app.cursor_move(MouseMoveEvent { pos: cursor_pos });
+                    }
+                    WindowEvent::MouseInput { state, button, .. } => {
+                        if state.is_pressed() {
+                            app.mouse_press(MousePress {
+                                button,
+                                pos: cursor_pos,
+                            });
+                        } else {
+                            app.mouse_unpress(MouseUnpress {
+                                button,
+                                pos: cursor_pos,
+                            });
+                        }
                     }
                     WindowEvent::ModifiersChanged(new_modifiers) => {
                         // modifiers = new_modifiers.state();
                     }
                     WindowEvent::Resized(_) => {
-                        resized = true;
+                        app.resize();
                         app.request_redraw();
                     }
                     WindowEvent::CloseRequested => {
                         window_target.exit();
                     }
+                    WindowEvent::RedrawRequested => {
+                        app.paint();
+                    }
                     _ => {}
                 },
                 _ => {}
             }
+
+            let expected_frame_length_seconds = 1.0 / 60.0;
+            let frame_duration = Duration::from_secs_f32(expected_frame_length_seconds);
+
+            if frame_start - previous_frame_start > frame_duration {
+                app.update();
+                previous_frame_start = frame_start;
+            }
+
+            window_target.set_control_flow(ControlFlow::WaitUntil(
+                previous_frame_start + frame_duration,
+            ))
         })
         .unwrap();
 }

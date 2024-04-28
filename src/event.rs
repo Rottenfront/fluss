@@ -29,5 +29,4 @@ pub enum Action {
     Quit,
     SetTitle(String),
     SetCursor(CursorIcon),
-    SetBackgroundColor(Color),
 }

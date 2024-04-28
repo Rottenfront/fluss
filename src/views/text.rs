@@ -127,7 +127,7 @@ impl View for TextView {
         false
     }
 
-    fn get_min_size(&self, drawer: &mut Piet, _ctx: &mut Context) -> Size {
+    fn get_min_size(&self, _ctx: &mut Context) -> Size {
         let text = (self.text)();
         let font = self.font.get();
         drawer
